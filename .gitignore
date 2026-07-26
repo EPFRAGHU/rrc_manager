@@ -1,0 +1,10 @@
+# Python build / distribution folders
+build/
+dist/
+*.zip
+*.exe
+
+# Environment and cache files
+.env
+__pycache__/
+*.pyc

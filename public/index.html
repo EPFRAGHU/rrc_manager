@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>EPFO Cuttack | RRC Master List Dashboard</title>
+
+  <!-- Google Fonts & FontAwesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- StarAdmin-2 Custom Stylesheet -->
+  <link rel="stylesheet" href="css/staradmin.css">
+
+  <!-- Supabase JS Client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- jsPDF & AutoTable for official PDF exports -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body>
+
+<div class="app-wrapper">
+
+  <!-- LEFT SIDEBAR -->
+  <aside class="sidebar">
+    <div class="brand-container">
+      <div class="brand-logo-icon">⚖</div>
+      <div class="brand-text">
+        <h2>EPFO CUTTACK</h2>
+        <span>RRC Recovery Dashboard</span>
+      </div>
+    </div>
+
+    <div class="sidebar-divider"></div>
+
+    <div class="sidebar-section-title">NAVIGATION TABS</div>
+    <div class="sidebar-tab-nav">
+      <button class="sidebar-tab-btn active" id="navDashboardBtn" onclick="switchMainTab('dashboard')">
+        <i class="fas fa-chart-pie me-2"></i> 📊 Dashboard Overview
+      </button>
+      <button class="sidebar-tab-btn" id="navEstBtn" onclick="switchMainTab('establishment')">
+        <i class="fas fa-building me-2"></i> 🔍 Establishment Search
+      </button>
+    </div>
+
+    <div class="sidebar-divider"></div>
+
+    <div class="sidebar-section-title">SEARCH BY</div>
+    <div class="search-mode-buttons">
+      <button class="search-mode-btn" data-mode="RRC No" onclick="setSearchMode('RRC No')">RRC No</button>
+      <button class="search-mode-btn active" data-mode="Est Code" onclick="setSearchMode('Est Code')">Est Code</button>
+      <button class="search-mode-btn" data-mode="Est Name" onclick="setSearchMode('Est Name')">Est Name</button>
+    </div>
+
+    <div class="sidebar-section-title">QUICK SEARCH</div>
+    <div class="search-input-group">
+      <input type="text" id="filterEntry" class="custom-input" placeholder="🔍 Type name, code or RRC no..." oninput="filterOptions()">
+    </div>
+
+    <div class="sidebar-section-title">MATCHING RESULTS</div>
+    <div class="search-input-group">
+      <select id="searchDropdown" class="custom-select" onchange="onRecordSelect(this.value)">
+        <option value="">Loading Supabase data...</option>
+      </select>
+    </div>
+
+    <div class="sidebar-section-title">AVAILABLE RRC ROWS</div>
+    <div class="search-input-group">
+      <select id="matchedRecordsBox" class="custom-select" onchange="displaySpecificRow(this.value)">
+        <option value="">Select Establishment first</option>
+      </select>
+    </div>
+
+    <button class="sidebar-btn btn-outline" onclick="resetUI()">
+      <i class="fas fa-rotate-left"></i> Clear Search
+    </button>
+
+    <button class="sidebar-btn btn-accent" onclick="showMonthlyReport()">
+      <i class="fas fa-chart-column"></i> Monthly Recovery Report
+    </button>
+
+    <button class="sidebar-btn btn-success" onclick="showFullyRecoveredReport()">
+      <i class="fas fa-circle-check"></i> Fully Recovered Report
+    </button>
+
+    <button class="sidebar-btn btn-outline" style="border-color: var(--warning); color: var(--warning);" onclick="showEoReportModal()">
+      <i class="fas fa-user-shield"></i> EO Monthly Performance
+    </button>
+
+    <div style="margin-top: auto; padding: 20px; font-size: 11px; color: var(--text-secondary); text-align: center;">
+      Employees' Provident Fund Organisation<br>
+      <span style="font-size: 9px; opacity: 0.7;">Powered by Supabase & StarAdmin-2</span>
+    </div>
+  </aside>
+
+  <!-- MAIN WORKSPACE -->
+  <main class="main-content">
+
+    <!-- TOP NAVBAR -->
+    <header class="top-navbar">
+      <div class="page-title">
+        <h1 id="topNavTitle">RRC Master Ledger Dashboard</h1>
+        <p id="topNavSubtitle">Real-time Recovery Certificate Tracking & Account Breakdown System</p>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span id="appVersionBadge" style="background: rgba(108, 92, 231, 0.15); color: var(--accent); padding: 6px 14px; border-radius: 20px; font-size: 11px; font-weight: 700; border: 1px solid rgba(108, 92, 231, 0.3); cursor: pointer;" onclick="showVersionHistoryModal()" title="Click to view Version Release Changelog">
+          <i class="fas fa-code-branch me-1"></i> Version v2.6.3
+        </span>
+        <span id="syncStatusBadge" style="background: var(--success-soft); color: var(--success); padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 600;">
+          <i class="fas fa-database me-1"></i> Supabase Connected
+        </span>
+      </div>
+    </header>
+
+    <!-- PAGE 1: DASHBOARD OVERVIEW (SHOWS ONLY DASHBOARD CARDS) -->
+    <div id="pageDashboardView">
+
+      <!-- METRICS GRID OVERVIEW -->
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <div class="metric-header">
+            <span class="metric-title">Total RRC Records</span>
+            <div class="metric-icon" style="background: var(--accent-soft); color: var(--accent);"><i class="fas fa-file-contract"></i></div>
+          </div>
+          <div class="metric-value" id="metricTotalRrc">0</div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-header">
+            <span class="metric-title">Total Dues (OB)</span>
+            <div class="metric-icon" style="background: rgba(247, 183, 51, 0.15); color: var(--warning);"><i class="fas fa-indian-rupee-sign"></i></div>
+          </div>
+          <div class="metric-value" id="metricTotalDues">₹ 0.00</div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-header">
+            <span class="metric-title">Total Recovered</span>
+            <div class="metric-icon" style="background: var(--success-soft); color: var(--success);"><i class="fas fa-vault"></i></div>
+          </div>
+          <div class="metric-value" id="metricTotalRecovered">₹ 0.00</div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-header">
+            <span class="metric-title">Outstanding Balance</span>
+            <div class="metric-icon" style="background: var(--danger-soft); color: var(--danger);"><i class="fas fa-scale-unbalanced"></i></div>
+          </div>
+          <div class="metric-value" id="metricTotalPending">₹ 0.00</div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-header">
+            <span class="metric-title">Fully Recovered</span>
+            <div class="metric-icon" style="background: var(--success-soft); color: var(--success);"><i class="fas fa-award"></i></div>
+          </div>
+          <div class="metric-value" id="metricFullyRecoveredCount">0</div>
+        </div>
+      </div>
+
+      <!-- ENFORCEMENT OFFICER (EO) PERFORMANCE CARDS SECTION -->
+      <div class="eo-section">
+        <div class="eo-section-header">
+          <div>
+            <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: var(--text-primary);">
+              <i class="fas fa-user-shield me-2" style="color: var(--warning);"></i> Enforcement Officers (EO) Monthly Recovery Cards
+            </h3>
+            <span style="font-size: 12px; color: var(--text-secondary);">Tracking RRC dues, monthly collections & pending balances by Enforcement Officer</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <label style="font-size: 11px; font-weight: 700; color: var(--text-secondary);">Select Month:</label>
+            <select id="eoMonthSelect" class="custom-select" style="margin: 0; width: 160px; padding: 6px 12px;" onchange="renderEoPerformanceCards()">
+              <!-- Dynamic Month Options -->
+            </select>
+          </div>
+        </div>
+        <div class="eo-cards-grid" id="eoCardsGrid">
+          <!-- Dynamic EO Cards rendered by app.js -->
+        </div>
+      </div>
+
+      <!-- 7 ANALYTICS DASHBOARD CARDS SECTION -->
+      <div class="eo-section" style="margin-top: 24px;">
+        <div class="eo-section-header">
+          <div>
+            <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: var(--text-primary);">
+              <i class="fas fa-chart-pie me-2" style="color: var(--accent);"></i> RRC Analytics & Operational Intelligence (7 Key Cards)
+            </h3>
+            <span style="font-size: 12px; color: var(--text-secondary);">Real-time actionable reports for Top Defaulters, Districts, RO Performance, Ageing, Legal Actions & Accounts</span>
+          </div>
+        </div>
+
+        <div class="metrics-grid" style="grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap: 20px;">
+          
+          <!-- CARD 1: TOP 10 DEFAULTERS WATCHLIST -->
+          <div class="eo-card" id="cardDefaulters">
+            <div class="eo-card-header">
+              <div class="eo-avatar" style="background: linear-gradient(135deg, #ff6b6b, #ee5253);"><i class="fas fa-trophy"></i></div>
+              <div>
+                <h4 class="eo-name">Top Defaulters Watchlist</h4>
+                <span style="font-size: 11px; color: var(--text-secondary);">Highest Pending Dues Establishments</span>
+              </div>
+            </div>
+            <div id="defaultersPreviewList" style="font-size: 12px; margin-bottom: 14px;"></div>
+            <button class="sidebar-btn btn-outline" style="width: 100%; margin: 0;" onclick="showDefaultersModal()">
+              <i class="fas fa-list-ol me-1"></i> View Full Watchlist Report
+            </button>
+          </div>
+
+          <!-- CARD 2: DISTRICT & DO/RO RECOVERY BREAKDOWN -->
+          <div class="eo-card" id="cardDistrict">
+            <div class="eo-card-header">
+              <div class="eo-avatar" style="background: linear-gradient(135deg, #3B82F6, #1D4ED8);"><i class="fas fa-map-location-dot"></i></div>
+              <div>
+                <h4 class="eo-name">District & DO/RO Breakdown</h4>
+                <span style="font-size: 11px; color: var(--text-secondary);">Geographical Recovery Distribution</span>
+              </div>
+            </div>
+            <div id="districtPreviewList" style="font-size: 12px; margin-bottom: 14px;"></div>
+            <button class="sidebar-btn btn-outline" style="width: 100%; margin: 0;" onclick="showDistrictModal()">
+              <i class="fas fa-map me-1"></i> View District Analytics
+            </button>
+          </div>
+
+          <!-- CARD 3: RECOVERY OFFICERS (RO) PERFORMANCE -->
+          <div class="eo-card" id="cardRo">
+            <div class="eo-card-header">
+              <div class="eo-avatar" style="background: linear-gradient(135deg, #8e44ad, #9b59b6);"><i class="fas fa-gavel"></i></div>
+              <div>
+                <h4 class="eo-name">Recovery Officers (RO) Matrix</h4>
+                <span style="font-size: 11px; color: var(--text-secondary);">RO Assigned RRCs & Recovery Totals</span>
+              </div>
+            </div>
+            <div id="roPreviewList" style="font-size: 12px; margin-bottom: 14px;"></div>
+            <button class="sidebar-btn btn-outline" style="width: 100%; margin: 0;" onclick="showRoModal()">
+              <i class="fas fa-user-shield me-1"></i> View RO Performance Report
+            </button>
+          </div>
+
+          <!-- CARD 4: RRC AGEING & VINTAGE ANALYSIS -->
+          <div class="eo-card" id="cardAgeing">
+            <div class="eo-card-header">
+              <div class="eo-avatar" style="background: linear-gradient(135deg, #f7b733, #fa8231);"><i class="fas fa-hourglass-half"></i></div>
+              <div>
+                <h4 class="eo-name">Certificate Ageing Analysis</h4>
+                <span style="font-size: 11px; color: var(--text-secondary);">RRC Vintage & Ageing Buckets</span>
+              </div>
+            </div>
+            <div id="ageingPreviewList" style="font-size: 12px; margin-bottom: 14px;"></div>
+            <button class="sidebar-btn btn-outline" style="width: 100%; margin: 0;" onclick="showAgeingModal()">
+              <i class="fas fa-history me-1"></i> View Full Ageing Breakdown
+            </button>
+          </div>
+
+          <!-- CARD 5: ACTION TAKEN & LEGAL STAGE TRACKER -->
+          <div class="eo-card" id="cardAction">
+            <div class="eo-card-header">
+              <div class="eo-avatar" style="background: linear-gradient(135deg, #eb3b5a, #fa8231);"><i class="fas fa-scale-balanced"></i></div>
+              <div>
+                <h4 class="eo-name">Action Taken & Legal Stage</h4>
+                <span style="font-size: 11px; color: var(--text-secondary);">Attachment, Warrants & Legal Status</span>
+              </div>
+            </div>
+            <div id="actionPreviewList" style="font-size: 12px; margin-bottom: 14px;"></div>
+            <button class="sidebar-btn btn-outline" style="width: 100%; margin: 0;" onclick="showActionModal()">
+              <i class="fas fa-gavel me-1"></i> View Legal Action Report
+            </button>
+          </div>
+
+          <!-- CARD 6: COLLECTION MODE & CHANNEL ANALYSIS -->
+          <div class="eo-card" id="cardMode">
+            <div class="eo-card-header">
+              <div class="eo-avatar" style="background: linear-gradient(135deg, #2ecc71, #20bf6b);"><i class="fas fa-money-check-dollar"></i></div>
+              <div>
+                <h4 class="eo-name">Collection Mode Analysis</h4>
+                <span style="font-size: 11px; color: var(--text-secondary);">DD, Cheque, Online & Bank Attachment</span>
+              </div>
+            </div>
+            <div id="modePreviewList" style="font-size: 12px; margin-bottom: 14px;"></div>
+            <button class="sidebar-btn btn-outline" style="width: 100%; margin: 0;" onclick="showModeModal()">
+              <i class="fas fa-receipt me-1"></i> View Collection Mode Report
+            </button>
+          </div>
+
+          <!-- CARD 7: 5-ACCOUNT WISE REVENUE DISTRIBUTION -->
+          <div class="eo-card" id="cardAccountSplit">
+            <div class="eo-card-header">
+              <div class="eo-avatar" style="background: linear-gradient(135deg, #6C5CE7, #4834d4);"><i class="fas fa-table-cells"></i></div>
+              <div>
+                <h4 class="eo-name">5-Account Revenue Split</h4>
+                <span style="font-size: 11px; color: var(--text-secondary);">EPF Acc 1, 2, 10, 21 & 22 Distribution</span>
+              </div>
+            </div>
+            <div id="accountSplitPreviewList" style="font-size: 12px; margin-bottom: 14px;"></div>
+            <button class="sidebar-btn btn-outline" style="width: 100%; margin: 0;" onclick="showAccountSplitModal()">
+              <i class="fas fa-calculator me-1"></i> View 5-Account Report
+            </button>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE 2: ESTABLISHMENT SEARCH & CERTIFICATE LEDGER (SHOWS SEPARATELY WHEN SEARCHED OR TAB SWITCHED) -->
+    <div id="pageEstView" style="display: none;">
+      <!-- ESTABLISHMENT DETAILS HEADER CARD -->
+      <div class="establishment-header-card">
+        <h2 class="est-title" id="titleLbl">Select an establishment to populate metrics</h2>
+        <p class="est-subtitle" id="subtitleLbl">Establishment specific details will appear below</p>
+        <div class="officers-badge-group" id="recoveryLbl">
+          <i class="fas fa-user-shield me-1"></i> Recovery Officer: Not Selected &nbsp;•&nbsp; Enforcement Officer: Not Selected
+        </div>
+        <div id="saveStatusLbl" style="font-size: 12px; margin-top: 8px; color: var(--text-secondary);"></div>
+      </div>
+
+      <!-- CERTIFICATE CARDS STACK CONTAINER -->
+      <div id="tablesContainer">
+        <div style="text-align: center; padding: 40px; color: var(--text-secondary);">
+          <i class="fas fa-magnifying-glass fa-2x mb-3" style="color: var(--accent);"></i>
+          <p>Please select an establishment code or RRC number from the sidebar to view certificate ledgers.</p>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ACCOUNT HISTORY & PARTIAL PAYMENT MODAL -->
+<div class="modal-overlay" id="accountHistoryModal">
+  <div class="modal-container">
+    <div class="modal-header">
+      <h3 id="histModalTitle">Account Payment History</h3>
+      <button class="modal-close-btn" onclick="closeModal('accountHistoryModal')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div id="histModalSubhead" style="font-size: 13px; color: var(--text-secondary); margin-bottom: 16px;"></div>
+
+      <div style="display: flex; gap: 16px; background: var(--bg-card); padding: 14px; border-radius: 12px; margin-bottom: 20px;">
+        <div style="flex: 1;" id="histDueLbl">Dues OB: ₹ 0.00</div>
+        <div style="flex: 1; color: var(--accent);" id="histPaidLbl">Total Deposited: ₹ 0.00</div>
+        <div style="flex: 1;" id="histBalLbl">Outstanding Balance: ₹ 0.00</div>
+      </div>
+
+      <div style="background: var(--bg-card); padding: 16px; border-radius: 12px; margin-bottom: 20px;">
+        <div style="font-weight: 700; font-size: 13px; margin-bottom: 10px;"><i class="fas fa-plus-circle me-1" style="color: var(--accent);"></i> Add Partial Payment</div>
+        <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+          <div>
+            <label class="form-label-sm">Payment Date</label>
+            <input type="date" id="popPayDate" class="custom-input" style="width: 140px;">
+          </div>
+          <div>
+            <label class="form-label-sm">Amount (₹)</label>
+            <input type="number" id="popPayAmt" class="custom-input" style="width: 160px;" placeholder="e.g. 5000">
+          </div>
+          <div style="align-self: end;">
+            <button class="sidebar-btn btn-accent" style="width: auto; margin: 0; padding: 10px 20px;" onclick="submitPopPayment()">
+              <i class="fas fa-save"></i> Save Payment
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="ledger-table" id="histTable">
+          <thead>
+            <tr>
+              <th>Payment Date</th>
+              <th>Account</th>
+              <th class="text-end">Payment Amount (₹)</th>
+              <th>Period</th>
+            </tr>
+          </thead>
+          <tbody id="histTableBody">
+            <!-- Dynamic history rows -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MONTHLY RECOVERY REPORT MODAL -->
+<div class="modal-overlay" id="monthlyReportModal">
+  <div class="modal-container">
+    <div class="modal-header">
+      <div>
+        <h3 style="margin: 0;">Month-wise Recovery Report</h3>
+        <span style="font-size: 14px; color: var(--text-secondary);">Grouped by payment dates entered into Supabase</span>
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <button class="sidebar-btn btn-outline" style="width: auto; margin: 0; padding: 6px 14px;" onclick="exportMonthlyReportCsv()">
+          <i class="fas fa-file-csv me-1"></i> Export CSV
+        </button>
+        <button class="sidebar-btn" style="width: auto; margin: 0; padding: 6px 14px; background: linear-gradient(135deg, #e74c3c, #c0392b); color: #fff; border: none; font-weight: 700; border-radius: 8px; box-shadow: 0 4px 10px rgba(231,76,60,0.4);" onclick="exportMonthlyReportPdf()">
+          <i class="fas fa-file-pdf me-1"></i> Export PDF
+        </button>
+        <button class="modal-close-btn" onclick="closeModal('monthlyReportModal')">&times;</button>
+      </div>
+    </div>
+    <div class="modal-body" id="monthlyReportBody">
+      <!-- Dynamic monthly report content -->
+    </div>
+  </div>
+</div>
+
+<!-- FULLY RECOVERED REPORT MODAL -->
+<div class="modal-overlay" id="fullyRecoveredReportModal">
+  <div class="modal-container">
+    <div class="modal-header">
+      <div>
+        <h3 style="margin: 0;">Fully Recovered Report</h3>
+        <span style="font-size: 14px; color: var(--text-secondary);">Establishments whose outstanding balance reached ₹ 0.00</span>
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <button class="sidebar-btn btn-outline" style="width: auto; margin: 0; padding: 6px 14px;" onclick="exportFullyRecoveredCsv()">
+          <i class="fas fa-file-csv me-1"></i> Export CSV
+        </button>
+        <button class="sidebar-btn" style="width: auto; margin: 0; padding: 6px 14px; background: linear-gradient(135deg, #e74c3c, #c0392b); color: #fff; border: none; font-weight: 700; border-radius: 8px; box-shadow: 0 4px 10px rgba(231,76,60,0.4);" onclick="exportFullyRecoveredPdf()">
+          <i class="fas fa-file-pdf me-1"></i> Export PDF
+        </button>
+        <button class="modal-close-btn" onclick="closeModal('fullyRecoveredReportModal')">&times;</button>
+      </div>
+    </div>
+    <div class="modal-body" id="fullyRecoveredReportBody">
+      <!-- Dynamic fully recovered content -->
+    </div>
+  </div>
+</div>
+
+<!-- EO PERFORMANCE HISTORY MODAL -->
+<div class="modal-overlay" id="eoReportModal">
+  <div class="modal-container">
+    <div class="modal-header">
+      <div>
+        <h3 style="margin: 0;"><i class="fas fa-user-shield me-2" style="color: var(--warning);"></i> Enforcement Officers (EO) Recovery History Report</h3>
+        <span style="font-size: 14px; color: var(--text-secondary);">Historical recovery performance broken down by Enforcement Officer and Month</span>
+      </div>
+      <div style="display: flex; gap: 10px; align-items: center;">
+        <button class="sidebar-btn btn-outline" style="width: auto; margin: 0; padding: 6px 14px;" onclick="exportEoReportCsv()">
+          <i class="fas fa-file-csv me-1"></i> Export CSV
+        </button>
+        <button class="sidebar-btn" style="width: auto; margin: 0; padding: 6px 14px; background: linear-gradient(135deg, #e74c3c, #c0392b); color: #fff; border: none; font-weight: 700; border-radius: 8px; box-shadow: 0 4px 10px rgba(231,76,60,0.4);" onclick="exportEoReportPdf()">
+          <i class="fas fa-file-pdf me-1"></i> Export PDF
+        </button>
+        <button class="modal-close-btn" onclick="closeModal('eoReportModal')">&times;</button>
+      </div>
+    </div>
+    <div class="modal-body" id="eoReportBody">
+      <!-- Dynamic EO Historical Report content -->
+    </div>
+  </div>
+</div>
+
+<!-- MODAL 1: TOP DEFAULTERS WATCHLIST -->
+<div class="modal-overlay" id="defaultersModal">
+  <div class="modal-container">
+    <div class="modal-header">
+      <div>
+        <h3 style="margin: 0;"><i class="fas fa-trophy me-2" style="color: var(--danger);"></i> Top Defaulters Watchlist (Highest Dues)</h3>
+        <span style="font-size: 14px; color: var(--text-secondary);">High-value default establishments ranked by total pending recovery amount</span>
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <button class="sidebar-btn btn-outline" style="width: auto; margin: 0; padding: 6px 14px;" onclick="exportDefaultersCsv()"><i class="fas fa-file-csv me-1"></i> Export CSV</button>
+        <button class="sidebar-btn" style="width: auto; margin: 0; padding: 6px 14px; background: linear-gradient(135deg, #e74c3c, #c0392b); color: #fff; border: none; font-weight: 700; border-radius: 8px; box-shadow: 0 4px 10px rgba(231,76,60,0.4);" onclick="exportDefaultersPdf()"><i class="fas fa-file-pdf me-1"></i> Export PDF</button>
+        <button class="modal-close-btn" onclick="closeModal('defaultersModal')">&times;</button>
+      </div>
+    </div>
+    <div class="modal-body" id="defaultersModalBody"></div>
+  </div>
+</div>
+
+<!-- MODAL: EO RRC FILTER LIST -->
+<div class="modal-overlay" id="eoRrcFilterModal">
+  <div class="modal-container">
+    <div class="modal-header">
+      <div>
+        <h3 style="margin: 0;" id="eoRrcFilterTitle"><i class="fas fa-user-shield me-2" style="color: var(--accent);"></i> EO Pending RRC List</h3>
+        <span style="font-size: 14px; color: var(--text-secondary);" id="eoRrcFilterSubtitle">All pending recovery certificates assigned to this Enforcement Officer</span>
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <button class="sidebar-btn btn-outline" style="width: auto; margin: 0; padding: 6px 14px;" onclick="exportEoRrcFilterCsv()"><i class="fas fa-file-csv me-1"></i> Export CSV</button>
+        <button class="sidebar-btn" style="width: auto; margin: 0; padding: 6px 14px; background: linear-gradient(135deg, #e74c3c, #c0392b); color: #fff; border: none; font-weight: 700; border-radius: 8px; box-shadow: 0 4px 10px rgba(231,76,60,0.4);" onclick="exportEoRrcFilterPdf()"><i class="fas fa-file-pdf me-1"></i> Export PDF</button>
+        <button class="modal-close-btn" onclick="closeModal('eoRrcFilterModal')">&times;</button>
+      </div>
+    </div>
+    <div class="modal-body" id="eoRrcFilterModalBody"></div>
+  </div>
+</div>
+
+<!-- MODAL 2: DISTRICT ANALYTICS -->
+<div class="modal-overlay" id="districtModal">
+  <div class="modal-container">
+    <div class="modal-header">
+      <div>
+        <h3 style="margin: 0;"><i class="fas fa-map-location-dot me-2" style="color: #3B82F6;"></i> District & Geographical Recovery Analytics</h3>
+        <span style="font-size: 14px; color: var(--text-secondary);">Recovery performance and arrears distribution across Districts &amp; Offices</span>
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <button class="sidebar-btn btn-outline" style="width: auto; margin: 0; padding: 6px 14px;" onclick="exportDistrictCsv()"><i class="fas fa-file-csv me-1"></i> Export CSV</button>
+        <button class="sidebar-btn" style="width: auto; margin: 0; padding: 6px 14px; background: linear-gradient(135deg, #e74c3c, #c0392b); color: #fff; border: none; font-weight: 700; border-radius: 8px; box-shadow: 0 4px 10px rgba(231,76,60,0.4);" onclick="exportDistrictPdf()"><i class="fas fa-file-pdf me-1"></i> Export PDF</button>
+        <button class="modal-close-btn" onclick="closeModal('districtModal')">&times;</button>
+      </div>
+    </div>
+    <div class="modal-body" id="districtModalBody"></div>
+  </div>
+</div>
+
+<!-- MODAL 3: RECOVERY OFFICERS (RO) PERFORMANCE -->
+<div class="modal-overlay" id="roModal">
+  <div class="modal-container">
+    <div class="modal-header">
+      <div>
+        <h3 style="margin: 0;"><i class="fas fa-gavel me-2" style="color: #8e44ad;"></i> Recovery Officers (RO) Performance Matrix</h3>
+        <span style="font-size: 14px; color: var(--text-secondary);">Assigned RRCs, total dues OB &amp; recoveries per Recovery Officer</span>
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <button class="sidebar-btn btn-outline" style="width: auto; margin: 0; padding: 6px 14px;" onclick="exportRoCsv()"><i class="fas fa-file-csv me-1"></i> Export CSV</button>
+        <button class="sidebar-btn" style="width: auto; margin: 0; padding: 6px 14px; background: linear-gradient(135deg, #e74c3c, #c0392b); color: #fff; border: none; font-weight: 700; border-radius: 8px; box-shadow: 0 4px 10px rgba(231,76,60,0.4);" onclick="exportRoPdf()"><i class="fas fa-file-pdf me-1"></i> Export PDF</button>
+        <button class="modal-close-btn" onclick="closeModal('roModal')">&times;</button>
+      </div>
+    </div>
+    <div class="modal-body" id="roModalBody"></div>
+  </div>
+</div>
+
+<!-- MODAL 4: RRC AGEING & VINTAGE ANALYSIS -->
+<div class="modal-overlay" id="ageingModal">
+  <div class="modal-container">
+    <div class="modal-header">
+      <div>
+        <h3 style="margin: 0;"><i class="fas fa-hourglass-half me-2" style="color: var(--warning);"></i> RRC Certificate Ageing & Vintage Analysis</h3>
+        <span style="font-size: 14px; color: var(--text-secondary);">Breakdown of pending certificates by age (&lt; 1 yr, 1-3 yrs, 3-5 yrs, 5+ yrs)</span>
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <button class="sidebar-btn btn-outline" style="width: auto; margin: 0; padding: 6px 14px;" onclick="exportAgeingCsv()"><i class="fas fa-file-csv me-1"></i> Export CSV</button>
+        <button class="sidebar-btn" style="width: auto; margin: 0; padding: 6px 14px; background: linear-gradient(135deg, #e74c3c, #c0392b); color: #fff; border: none; font-weight: 700; border-radius: 8px; box-shadow: 0 4px 10px rgba(231,76,60,0.4);" onclick="exportAgeingPdf()"><i class="fas fa-file-pdf me-1"></i> Export PDF</button>
+        <button class="modal-close-btn" onclick="closeModal('ageingModal')">&times;</button>
+      </div>
+    </div>
+    <div class="modal-body" id="ageingModalBody"></div>
+  </div>
+</div>
+
+<!-- MODAL: AGEING YEAR DRILL-DOWN (floats above ageing modal) -->
+<div class="modal-overlay" id="ageingDrilldownModal" style="z-index: 1100;">
+  <div class="modal-container">
+    <div class="modal-header">
+      <div>
+        <h3 style="margin: 0;" id="ageingDrilldownTitle"><i class="fas fa-hourglass-half me-2" style="color: var(--warning);"></i> RRC Certificates — Issued Year</h3>
+        <span style="font-size: 14px; color: var(--text-secondary);" id="ageingDrilldownSubtitle">All certificates for the selected issued year</span>
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <button class="sidebar-btn btn-outline" style="width: auto; margin: 0; padding: 6px 14px;" onclick="exportAgeingYearCsv()"><i class="fas fa-file-csv me-1"></i> Export CSV</button>
+        <button class="sidebar-btn" style="width: auto; margin: 0; padding: 6px 14px; background: linear-gradient(135deg, #e74c3c, #c0392b); color: #fff; border: none; font-weight: 700; border-radius: 8px; box-shadow: 0 4px 10px rgba(231,76,60,0.4);" onclick="exportAgeingYearPdf()"><i class="fas fa-file-pdf me-1"></i> Export PDF</button>
+        <button class="modal-close-btn" onclick="closeModal('ageingDrilldownModal')">&times;</button>
+      </div>
+    </div>
+    <div class="modal-body" id="ageingDrilldownBody"></div>
+  </div>
+</div>
+
+<!-- MODAL 5: ACTION TAKEN & LEGAL STAGE TRACKER -->
+<div class="modal-overlay" id="actionModal">
+  <div class="modal-container">
+    <div class="modal-header">
+      <div>
+        <h3 style="margin: 0;"><i class="fas fa-scale-balanced me-2" style="color: #eb3b5a;"></i> Action Taken & Legal Stage Tracker</h3>
+        <span style="font-size: 14px; color: var(--text-secondary);">Bank attachment, arrest warrants, property attachment &amp; court stays</span>
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <button class="sidebar-btn btn-outline" style="width: auto; margin: 0; padding: 6px 14px;" onclick="exportActionCsv()"><i class="fas fa-file-csv me-1"></i> Export CSV</button>
+        <button class="sidebar-btn" style="width: auto; margin: 0; padding: 6px 14px; background: linear-gradient(135deg, #e74c3c, #c0392b); color: #fff; border: none; font-weight: 700; border-radius: 8px; box-shadow: 0 4px 10px rgba(231,76,60,0.4);" onclick="exportActionPdf()"><i class="fas fa-file-pdf me-1"></i> Export PDF</button>
+        <button class="modal-close-btn" onclick="closeModal('actionModal')">&times;</button>
+      </div>
+    </div>
+    <div class="modal-body" id="actionModalBody"></div>
+  </div>
+</div>
+
+<!-- MODAL 6: COLLECTION MODE ANALYSIS -->
+<div class="modal-overlay" id="modeModal">
+  <div class="modal-container">
+    <div class="modal-header">
+      <div>
+        <h3 style="margin: 0;"><i class="fas fa-money-check-dollar me-2" style="color: var(--success);"></i> Collection Mode & Receipt Channel Analysis</h3>
+        <span style="font-size: 14px; color: var(--text-secondary);">Demand Draft, Cheque, Online/RTGS &amp; Bank Recovery Channels</span>
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <button class="sidebar-btn btn-outline" style="width: auto; margin: 0; padding: 6px 14px;" onclick="exportModeCsv()"><i class="fas fa-file-csv me-1"></i> Export CSV</button>
+        <button class="sidebar-btn" style="width: auto; margin: 0; padding: 6px 14px; background: linear-gradient(135deg, #e74c3c, #c0392b); color: #fff; border: none; font-weight: 700; border-radius: 8px; box-shadow: 0 4px 10px rgba(231,76,60,0.4);" onclick="exportModePdf()"><i class="fas fa-file-pdf me-1"></i> Export PDF</button>
+        <button class="modal-close-btn" onclick="closeModal('modeModal')">&times;</button>
+      </div>
+    </div>
+    <div class="modal-body" id="modeModalBody"></div>
+  </div>
+</div>
+
+<!-- MODAL 7: 5-ACCOUNT REVENUE SPLIT -->
+<div class="modal-overlay" id="accountSplitModal">
+  <div class="modal-container">
+    <div class="modal-header">
+      <div>
+        <h3 style="margin: 0;"><i class="fas fa-table-cells me-2" style="color: var(--accent);"></i> 5-Account Wise Revenue Reconciliation</h3>
+        <span style="font-size: 14px; color: var(--text-secondary);">Accounts 1 (EPF), 2 (Admin), 10 (EPS), 21 (EDLI), 22 (EDLI Admin) Breakdown</span>
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <button class="sidebar-btn btn-outline" style="width: auto; margin: 0; padding: 6px 14px;" onclick="exportAccountSplitCsv()"><i class="fas fa-file-csv me-1"></i> Export CSV</button>
+        <button class="sidebar-btn" style="width: auto; margin: 0; padding: 6px 14px; background: linear-gradient(135deg, #e74c3c, #c0392b); color: #fff; border: none; font-weight: 700; border-radius: 8px; box-shadow: 0 4px 10px rgba(231,76,60,0.4);" onclick="exportAccountSplitPdf()"><i class="fas fa-file-pdf me-1"></i> Export PDF</button>
+        <button class="modal-close-btn" onclick="closeModal('accountSplitModal')">&times;</button>
+      </div>
+    </div>
+    <div class="modal-body" id="accountSplitModalBody"></div>
+  </div>
+</div>
+
+<!-- INSTANT ESTABLISHMENT LEDGER POPUP MODAL (FLOATING ON TOP OF REPORTS) -->
+<div class="modal-overlay" id="quickEstLedgerModal" style="z-index: 1200;">
+  <div class="modal-container" style="max-width: 1150px; max-height: 90vh; overflow-y: auto;">
+    <div class="modal-header" style="background: linear-gradient(135deg, #1E1E2D, #2D3436); padding: 18px 24px; position: sticky; top: 0; z-index: 10;">
+      <div>
+        <h3 style="margin: 0; color: #ffffff;" id="quickEstModalTitle">Establishment Ledger Inspector</h3>
+        <span style="font-size: 12px; color: rgba(255,255,255,0.7);" id="quickEstModalSubtitle">Quick Certificate Breakdown & Payment Recorder</span>
+      </div>
+      <button class="modal-close-btn" style="color: #ffffff;" onclick="closeModal('quickEstLedgerModal')">&times;</button>
+    </div>
+    <div class="modal-body" id="quickEstLedgerModalBody" style="padding: 24px;">
+      <!-- Dynamic Establishment 14B / 7A / 7Q Ledgers & Payment Forms -->
+    </div>
+  </div>
+</div>
+
+<!-- VERSION RELEASE HISTORY & CHANGELOG MODAL -->
+<div class="modal-overlay" id="versionHistoryModal">
+  <div class="modal-container" style="max-width: 950px; max-height: 90vh; overflow-y: auto;">
+    <div class="modal-header" style="background: linear-gradient(135deg, #1E1E2D, #6C5CE7); padding: 18px 24px; color: #ffffff;">
+      <div>
+        <h3 style="margin: 0; color: #ffffff;"><i class="fas fa-code-branch me-2"></i> Application Version & Build Changelog</h3>
+        <span style="font-size: 12px; color: rgba(255,255,255,0.8);">Complete release history of versions, feature updates & system enhancements</span>
+      </div>
+      <div style="display: flex; gap: 10px; align-items: center;">
+        <button class="sidebar-btn btn-outline" style="width: auto; margin: 0; padding: 6px 14px; border-color: rgba(255,255,255,0.4); color: #ffffff;" onclick="exportVersionLogCsv()">
+          <i class="fas fa-file-csv me-1"></i> Export Changelog
+        </button>
+        <button class="modal-close-btn" style="color: #ffffff;" onclick="closeModal('versionHistoryModal')">&times;</button>
+      </div>
+    </div>
+    <div class="modal-body" id="versionHistoryModalBody" style="padding: 24px;">
+      <!-- Dynamic Version History Timeline rendered by app.js -->
+    </div>
+  </div>
+</div>
+
+<!-- App Controller Script -->
+<script src="js/app.js?v=2.6.3"></script>
+
+</body>
+</html>
