@@ -1,0 +1,8 @@
+[phases.setup]
+nixPkgs = ["python3", "python3Packages.pip"]
+
+[phases.build]
+cmds = []
+
+[start]
+cmd = "python3 web_server.py"
