@@ -33,7 +33,7 @@ function cleanStr(val) {
   return s === 'nan' ? '' : s;
 }
 
-const APP_VERSION = 'v2.6.3';
+const APP_VERSION = 'v2.6.6';
 
 const APP_RELEASE_LOG = [
   {
@@ -45,6 +45,39 @@ const APP_RELEASE_LOG = [
       'filterByEo() now switches to Establishment tab automatically before populating results.',
       'Dropdown now shows ALL establishments assigned to the selected EO (not just the first one).',
       'First establishment is auto-selected so records appear immediately on click.'
+    ]
+  },
+  {
+    version: 'v2.6.6',
+    date: '2026-07-26',
+    title: 'PDF Export — Full Report from All Pages',
+    changes: [
+      'PDF export in paginated modals now generates the report from the complete data array, not just the current page.',
+      'Added generateDataPdf() engine — data-driven PDF that bypasses the DOM entirely.',
+      'Applies to: Top Defaulters Watchlist, EO Filter RRCs, and Ageing Year Drill-Down PDFs.',
+      'Includes proper Page X of N two-pass footer numbering.',
+      'CSV exports were already correct (they always used full data arrays).'
+    ]
+  },
+  {
+    version: 'v2.6.5',
+    date: '2026-07-26',
+    title: 'Compact Modal + Fixed Pagination Footer',
+    changes: [
+      'Reduced modal height from 92vh to 80vh for a compact fit around 10 records.',
+      'Pagination bar (First/Prev/Page/Next/Last) is now fixed at the bottom of the popup window.',
+      'Navigation bar no longer scrolls with table content — it stays locked in place at all times.',
+      'Modal body scrolls independently while header and pagination footer remain static.'
+    ]
+  },
+  {
+    version: 'v2.6.4',
+    date: '2026-07-26',
+    title: 'Fixed-Height Modal Window — No More Resizing',
+    changes: [
+      'Changed modal container from max-height to a fixed height: 92vh so the popup stays the same size on every page.',
+      'Modal body now uses flex: 1 with min-height: 0 so content scrolls inside the fixed window.',
+      'Prevents the annoying resize/jump between paginated pages with different row counts.'
     ]
   },
   {
@@ -536,8 +569,9 @@ function renderEoRrcPage(page) {
       </tr>`;
   });
 
-  html += `</tbody></table></div>${makePaginationBar(total, page, 'renderEoRrcPage')}`;
+  html += `</tbody></table></div>`;
   document.getElementById('eoRrcFilterModalBody').innerHTML = html;
+  document.getElementById('eoRrcFilterPagination').innerHTML = makePaginationBar(total, page, 'renderEoRrcPage');
 }
 
 function exportEoRrcFilterCsv() {
@@ -552,10 +586,17 @@ function exportEoRrcFilterCsv() {
 }
 
 function exportEoRrcFilterPdf() {
-  generateReportPdf(
+  const headers = ['Sl.No', 'EST Code', 'Establishment Name', 'Type', 'RRC No', 'District', 'Total Dues OB (Rs.)', 'Pending Amount (Rs.)'];
+  const rows = _eoRrcRecords.map((r, i) => [
+    i + 1, cleanStr(r.est_code), cleanStr(r.est_name), cleanStr(r.type),
+    cleanStr(r.rrc_no), cleanStr(r.district) || 'N/A',
+    fmtCur(parseFloat(r.recovery_ob) || 0).replace(/₹/g, 'Rs.'),
+    fmtCur(parseFloat(r.pending_curr_year) || parseFloat(r.recovery_ob) || 0).replace(/₹/g, 'Rs.')
+  ]);
+  generateDataPdf(
     `Pending RRC List — ${_currentEoFilterName}`,
-    `All Recovery Certificates assigned to Enforcement Officer: ${_currentEoFilterName} · Sorted by Highest Pending Amount`,
-    'eoRrcFilterModalBody'
+    `${rows.length} Recovery Certificates assigned to ${_currentEoFilterName} · Sorted alphabetically`,
+    headers, rows
   );
 }
 
@@ -2048,8 +2089,100 @@ function generateReportPdf(reportTitle, reportSubhead, containerId, orientation 
   doc.save(cleanFileName);
 }
 
+// ------------------------------------------------------------------
+// Data-Driven PDF Export (bypasses DOM, uses full data arrays)
+// Used for paginated modals where the DOM only shows 1 page at a time
+// ------------------------------------------------------------------
+function generateDataPdf(reportTitle, reportSubhead, headers, bodyRows, orientation = 'landscape') {
+  if (!window.jspdf || !window.jspdf.jsPDF) {
+    return alert('PDF Generation library is loading. Please try again in a moment.');
+  }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation, unit: 'mm', format: 'a4' });
+  const pageWidth = doc.internal.pageSize.getWidth();
+
+  // Header banner
+  doc.setFillColor(30, 30, 45);
+  doc.rect(0, 0, pageWidth, 24, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(13);
+  doc.text("EMPLOYEES' PROVIDENT FUND ORGANISATION", 14, 10);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.text("REGIONAL OFFICE, CUTTACK \u2014 RECOVERY CERTIFICATE MASTER SYSTEM", 14, 16);
+  const todayStr = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  doc.setFontSize(8);
+  doc.text(`Generated: ${todayStr}`, pageWidth - 14, 16, { align: 'right' });
+
+  // Title & subtitle
+  doc.setTextColor(30, 30, 45);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.text(reportTitle.toUpperCase(), 14, 31);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(100, 100, 100);
+  doc.text(reportSubhead, 14, 36);
+
+  // Column alignment
+  const colStyles = {};
+  headers.forEach((h, idx) => {
+    const txt = h.toLowerCase();
+    if (txt.includes('amount') || txt.includes('due') || txt.includes('paid') || txt.includes('ob') || txt.includes('pending') || txt.includes('rs') || txt.includes('recovered') || txt.includes('%') || txt.includes('acc')) {
+      colStyles[idx] = { halign: 'right', fontStyle: 'bold', overflow: 'linebreak' };
+    } else if (txt.includes('sl') || txt.includes('rank') || txt.includes('type') || txt.includes('rrcs') || txt.includes('count') || txt.includes('vintage')) {
+      colStyles[idx] = { halign: 'center' };
+    } else {
+      colStyles[idx] = { halign: 'left', overflow: 'linebreak' };
+    }
+  });
+
+  doc.autoTable({
+    head: [headers],
+    body: bodyRows,
+    startY: 40,
+    margin: { top: 40, left: 10, right: 10, bottom: 14 },
+    styles: { font: 'helvetica', fontSize: 7, cellPadding: 1.8, lineColor: [220, 224, 230], lineWidth: 0.1, overflow: 'linebreak' },
+    headStyles: { fillColor: [30, 30, 45], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7.5, halign: 'center' },
+    columnStyles: colStyles,
+    alternateRowStyles: { fillColor: [248, 249, 250] },
+    didDrawPage: function (data) {
+      const pageH = doc.internal.pageSize.getHeight();
+      doc.setFontSize(8);
+      doc.setTextColor(120, 120, 120);
+      doc.text('EPFO Cuttack \u2014 Official Recovery Certificate Management System', 10, pageH - 6);
+    }
+  });
+
+  // Two-pass page numbering
+  const totalPages = doc.internal.getNumberOfPages();
+  const pageH = doc.internal.pageSize.getHeight();
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    doc.setFillColor(255, 255, 255);
+    doc.rect(pageWidth - 45, pageH - 12, 40, 10, 'F');
+    doc.setFontSize(8);
+    doc.setTextColor(120, 120, 120);
+    doc.text(`Page ${i} of ${totalPages}`, pageWidth - 10, pageH - 6, { align: 'right' });
+  }
+
+  doc.save(reportTitle.replace(/[^a-zA-Z0-9]/g, '_') + '.pdf');
+}
+
 // Individual PDF Exporters for Reports
-function exportDefaultersPdf() { generateReportPdf('Top Defaulters Watchlist Report', 'Highest Pending Dues Establishments Ranked by Recovery Outstanding Balance', 'defaultersModalBody', 'landscape'); }
+// Paginated modals use generateDataPdf with full data arrays; non-paginated use generateReportPdf from DOM
+function exportDefaultersPdf() {
+  const headers = ['Sl.No', 'EST Code', 'Establishment Name', 'Type', 'RRC No', 'District', 'Total Dues OB (Rs.)', 'Pending Amount (Rs.)'];
+  const rows = _defaultersRecords.map((r, i) => [
+    i + 1, cleanStr(r.est_code), cleanStr(r.est_name), cleanStr(r.type),
+    cleanStr(r.rrc_no), cleanStr(r.district) || 'N/A',
+    fmtCur(parseFloat(r.recovery_ob) || 0).replace(/₹/g, 'Rs.'),
+    fmtCur(parseFloat(r.pending_curr_year) || parseFloat(r.recovery_ob) || 0).replace(/₹/g, 'Rs.')
+  ]);
+  generateDataPdf('Top Defaulters Watchlist Report', `${rows.length} Establishments Ranked Alphabetically by Name`, headers, rows);
+}
 function exportDistrictPdf() { generateReportPdf('District & Geographical Recovery Analytics Report', 'Recovery Performance and Dues Distribution across Districts & Offices', 'districtModalBody', 'landscape'); }
 function exportRoPdf() { generateReportPdf('Recovery Officers (RO) Performance Matrix', 'Assigned RRCs, Total Dues OB and Recoveries per Recovery Officer', 'roModalBody', 'landscape'); }
 function exportAgeingPdf() { generateReportPdf('RRC Certificate Ageing & Vintage Analysis Report', 'Breakdown of Pending Certificates by Vintage Age Buckets', 'ageingModalBody', 'landscape'); }
@@ -2423,8 +2556,9 @@ function renderDefaultersPage(page) {
       </tr>`;
   });
 
-  html += `</tbody></table></div>${makePaginationBar(total, page, 'renderDefaultersPage')}`;
+  html += `</tbody></table></div>`;
   document.getElementById('defaultersModalBody').innerHTML = html;
+  document.getElementById('defaultersPagination').innerHTML = makePaginationBar(total, page, 'renderDefaultersPage');
 }
 
 function exportDefaultersCsv() {
@@ -2810,8 +2944,9 @@ function renderAgeingDrilldownPage(page) {
       </tr>`;
   });
 
-  html += `</tbody></table></div>${makePaginationBar(total, page, 'renderAgeingDrilldownPage')}`;
+  html += `</tbody></table></div>`;
   document.getElementById('ageingDrilldownBody').innerHTML = html;
+  document.getElementById('ageingDrilldownPagination').innerHTML = makePaginationBar(total, page, 'renderAgeingDrilldownPage');
 }
 
 function exportAgeingYearCsv() {
@@ -2826,10 +2961,19 @@ function exportAgeingYearCsv() {
 }
 
 function exportAgeingYearPdf() {
-  generateReportPdf(
+  const headers = ['Sl.No', 'EST Code', 'Establishment Name', 'Type', 'RRC No', 'District', 'Enforcement Officer', 'Total Dues OB (Rs.)', 'Recovered (Rs.)', 'Pending Amount (Rs.)'];
+  const rows = _ageingDrilldownRecords.map((r, i) => [
+    i + 1, cleanStr(r.est_code), cleanStr(r.est_name), cleanStr(r.type),
+    cleanStr(r.rrc_no), cleanStr(r.district) || 'N/A',
+    cleanStr(r.enforcement_officer) || 'Unassigned',
+    fmtCur(parseFloat(r.recovery_ob) || 0).replace(/₹/g, 'Rs.'),
+    fmtCur(parseFloat(r.recovered_curr_year) || 0).replace(/₹/g, 'Rs.'),
+    fmtCur(parseFloat(r.pending_curr_year) || parseFloat(r.recovery_ob) || 0).replace(/₹/g, 'Rs.')
+  ]);
+  generateDataPdf(
     `RRC Certificates — Issued Year ${_currentAgeingYear}`,
-    `All Recovery Certificates issued in ${_currentAgeingYear} · Sorted alphabetically by Establishment Name`,
-    'ageingDrilldownBody'
+    `${rows.length} Recovery Certificates issued in ${_currentAgeingYear} · Sorted alphabetically by Establishment Name`,
+    headers, rows
   );
 }
 
