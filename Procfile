@@ -1,1 +1,1 @@
-web: python web_server.py
+web: python -m http.server $PORT --directory public
