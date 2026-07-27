@@ -33,9 +33,19 @@ function cleanStr(val) {
   return s === 'nan' ? '' : s;
 }
 
-const APP_VERSION = 'v2.7.4';
+const APP_VERSION = 'v2.7.5';
 
 const APP_RELEASE_LOG = [
+  {
+    version: 'v2.7.5',
+    date: '2026-07-27',
+    title: 'Enhanced Web Server CORS & Railway Healthcheck Endpoints',
+    changes: [
+      'Updated web_server.py with custom request handler supporting CORS headers for cross-origin DNS/proxy requests.',
+      'Added dedicated /health and /ping endpoints for Railway proxy health checks.',
+      'Configured Cache-Control and OPTIONS preflight handling for enterprise proxy compatibility.'
+    ]
+  },
   {
     version: 'v2.7.4',
     date: '2026-07-27',
