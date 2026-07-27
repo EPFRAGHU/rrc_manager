@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta name="description" content="EPFO Cuttack RRC Manager — Secure Login Portal">
+  <title>EPFO Cuttack | Secure Login — RRC Manager</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- FontAwesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- Supabase JS Client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    /* ─── Reset & Base ─────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-deep:      #0b0c1a;
+      --bg-card:      rgba(255, 255, 255, 0.04);
+      --bg-input:     rgba(255, 255, 255, 0.06);
+      --accent:       #7c6fe0;
+      --accent-glow:  rgba(124, 111, 224, 0.45);
+      --accent-light: #a89cf5;
+      --success:      #00c896;
+      --danger:       #ff5c7a;
+      --warning:      #ffb347;
+      --text-primary: #f0f0f8;
+      --text-secondary: rgba(240, 240, 248, 0.55);
+      --border:       rgba(255, 255, 255, 0.08);
+      --border-focus: rgba(124, 111, 224, 0.6);
+    }
+
+    html, body {
+      height: 100%;
+      font-family: 'Inter', system-ui, sans-serif;
+      background-color: var(--bg-deep);
+      color: var(--text-primary);
+      overflow: hidden;
+    }
+
+    /* ─── Animated Background ───────────────────────────────── */
+    .bg-canvas {
+      position: fixed; inset: 0; z-index: 0;
+      background:
+        radial-gradient(ellipse 80% 60% at 20% 10%,  rgba(108, 92, 231, 0.22) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 50% at 80% 80%,  rgba(0, 200, 150, 0.14) 0%, transparent 55%),
+        radial-gradient(ellipse 50% 40% at 50% 50%,  rgba(124, 111, 224, 0.07) 0%, transparent 70%),
+        linear-gradient(180deg, #0b0c1a 0%, #0f1025 100%);
+    }
+
+    /* Floating orbs */
+    .orb {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(80px);
+      animation: floatOrb 12s ease-in-out infinite alternate;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .orb-1 { width: 480px; height: 480px; background: rgba(108, 92, 231, 0.18); top: -120px; left: -100px; animation-delay: 0s; }
+    .orb-2 { width: 360px; height: 360px; background: rgba(0, 200, 150, 0.12); bottom: -80px; right: -80px; animation-delay: -4s; }
+    .orb-3 { width: 260px; height: 260px; background: rgba(255, 92, 122, 0.09); top: 40%; right: 5%; animation-delay: -8s; }
+
+    @keyframes floatOrb {
+      from { transform: translateY(0px) scale(1); }
+      to   { transform: translateY(-40px) scale(1.06); }
+    }
+
+    /* Grid overlay */
+    .grid-overlay {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+      background-size: 44px 44px;
+      mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 30%, transparent 100%);
+    }
+
+    /* ─── Page Layout ───────────────────────────────────────── */
+    .page-wrapper {
+      position: relative; z-index: 1;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    /* ─── Login Card ────────────────────────────────────────── */
+    .login-card {
+      width: 100%;
+      max-width: 440px;
+      background: rgba(14, 15, 30, 0.72);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 48px 44px 44px;
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,0.04),
+        0 40px 80px rgba(0,0,0,0.5),
+        0 0 60px var(--accent-glow);
+      animation: cardIn 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+
+    @keyframes cardIn {
+      from { opacity: 0; transform: translateY(28px) scale(0.97); }
+      to   { opacity: 1; transform: translateY(0px) scale(1); }
+    }
+
+    /* ─── Brand / Logo ──────────────────────────────────────── */
+    .brand-section {
+      text-align: center;
+      margin-bottom: 36px;
+    }
+
+    .brand-logo {
+      width: 68px; height: 68px;
+      background: linear-gradient(135deg, #6c5ce7, #a89cf5);
+      border-radius: 18px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 30px;
+      margin-bottom: 18px;
+      box-shadow: 0 8px 32px rgba(108, 92, 231, 0.5);
+      animation: logoPulse 3s ease-in-out infinite;
+    }
+
+    @keyframes logoPulse {
+      0%, 100% { box-shadow: 0 8px 32px rgba(108, 92, 231, 0.5); }
+      50%       { box-shadow: 0 8px 48px rgba(108, 92, 231, 0.85); }
+    }
+
+    .brand-org {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent-light);
+      margin-bottom: 6px;
+    }
+
+    .brand-title {
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--text-primary);
+      letter-spacing: -0.3px;
+      margin-bottom: 6px;
+    }
+
+    .brand-subtitle {
+      font-size: 12.5px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    /* ─── Divider ───────────────────────────────────────────── */
+    .divider {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border), transparent);
+      margin-bottom: 28px;
+    }
+
+    /* ─── Form ──────────────────────────────────────────────── */
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+    }
+
+    .input-wrapper {
+      position: relative;
+    }
+
+    .input-icon {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-secondary);
+      font-size: 14px;
+      transition: color 0.2s;
+      pointer-events: none;
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 13px 16px 13px 42px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      color: var(--text-primary);
+      outline: none;
+      transition: border-color 0.25s, box-shadow 0.25s, background 0.25s;
+      letter-spacing: 0.01em;
+    }
+
+    .form-input::placeholder { color: var(--text-secondary); }
+
+    .form-input:focus {
+      border-color: var(--border-focus);
+      background: rgba(255,255,255,0.08);
+      box-shadow: 0 0 0 3px rgba(124, 111, 224, 0.18), 0 0 20px rgba(124, 111, 224, 0.12);
+    }
+
+    .form-input:focus + .input-focus-ring { opacity: 1; }
+
+    /* Password toggle */
+    .toggle-pass {
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-size: 14px;
+      padding: 4px;
+      transition: color 0.2s;
+    }
+    .toggle-pass:hover { color: var(--accent-light); }
+
+    /* ─── Login Button ──────────────────────────────────────── */
+    .btn-login {
+      width: 100%;
+      padding: 14px 20px;
+      margin-top: 8px;
+      background: linear-gradient(135deg, #6c5ce7 0%, #a89cf5 100%);
+      border: none;
+      border-radius: 12px;
+      font-family: 'Inter', sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      color: #ffffff;
+      cursor: pointer;
+      letter-spacing: 0.02em;
+      transition: transform 0.18s, box-shadow 0.18s, opacity 0.18s;
+      box-shadow: 0 6px 24px rgba(108, 92, 231, 0.45);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-login::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.12), transparent);
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .btn-login:hover:not(:disabled)::before { opacity: 1; }
+    .btn-login:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 36px rgba(108, 92, 231, 0.6);
+    }
+    .btn-login:active:not(:disabled) { transform: translateY(0); }
+
+    .btn-login:disabled {
+      opacity: 0.65;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-login .btn-spinner {
+      display: inline-block;
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,0.35);
+      border-top-color: #ffffff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 8px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ─── Error / Status Alert ──────────────────────────────── */
+    .alert-box {
+      display: none;
+      padding: 12px 16px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 500;
+      margin-top: 16px;
+      line-height: 1.5;
+      animation: alertIn 0.3s ease both;
+    }
+
+    @keyframes alertIn {
+      from { opacity: 0; transform: translateY(-6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .alert-error {
+      background: rgba(255, 92, 122, 0.12);
+      border: 1px solid rgba(255, 92, 122, 0.35);
+      color: #ff8fa0;
+    }
+
+    .alert-success {
+      background: rgba(0, 200, 150, 0.12);
+      border: 1px solid rgba(0, 200, 150, 0.35);
+      color: #00d9a5;
+    }
+
+    .alert-box.show { display: flex; align-items: center; gap: 10px; }
+
+    /* ─── Footer ────────────────────────────────────────────── */
+    .card-footer {
+      text-align: center;
+      margin-top: 28px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+    }
+
+    .footer-text {
+      font-size: 11.5px;
+      color: var(--text-secondary);
+      line-height: 1.8;
+    }
+
+    .footer-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: rgba(108, 92, 231, 0.12);
+      border: 1px solid rgba(108, 92, 231, 0.22);
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 10.5px;
+      font-weight: 600;
+      color: var(--accent-light);
+      letter-spacing: 0.04em;
+      margin-top: 8px;
+    }
+
+    /* ─── Particle dots decoration ──────────────────────────── */
+    .dots {
+      position: fixed;
+      width: 3px; height: 3px;
+      border-radius: 50%;
+      background: rgba(124, 111, 224, 0.5);
+      pointer-events: none; z-index: 0;
+      animation: twinkle 3s ease-in-out infinite alternate;
+    }
+    @keyframes twinkle {
+      from { opacity: 0.2; transform: scale(0.8); }
+      to   { opacity: 0.8; transform: scale(1.2); }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Background -->
+<div class="bg-canvas"></div>
+<div class="grid-overlay"></div>
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+<div class="orb orb-3"></div>
+
+<!-- Decorative particles -->
+<div class="dots" style="top:15%; left:8%; animation-delay:0s;"></div>
+<div class="dots" style="top:30%; left:92%; animation-delay:1s;"></div>
+<div class="dots" style="top:70%; left:6%; animation-delay:2s;"></div>
+<div class="dots" style="top:80%; left:88%; animation-delay:0.5s;"></div>
+<div class="dots" style="top:50%; left:50%; animation-delay:1.5s;"></div>
+
+<!-- Login Card -->
+<div class="page-wrapper">
+  <div class="login-card">
+
+    <!-- Brand -->
+    <div class="brand-section">
+      <div class="brand-logo">⚖</div>
+      <div class="brand-org">Employees' Provident Fund Organisation</div>
+      <div class="brand-title">RRC Recovery Manager</div>
+      <div class="brand-subtitle">Regional Office · Cuttack, Odisha<br>Secure Portal — Authorized Personnel Only</div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Form -->
+    <form id="loginForm" onsubmit="handleLogin(event)">
+
+      <div class="form-group">
+        <label class="form-label" for="loginEmail">
+          <i class="fas fa-envelope" style="margin-right:5px;"></i> Username / Email
+        </label>
+        <div class="input-wrapper">
+          <i class="fas fa-at input-icon"></i>
+          <input
+            type="email"
+            id="loginEmail"
+            class="form-input"
+            placeholder="Enter your email address"
+            autocomplete="email"
+            required
+          >
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="loginPassword">
+          <i class="fas fa-lock" style="margin-right:5px;"></i> Password
+        </label>
+        <div class="input-wrapper">
+          <i class="fas fa-key input-icon"></i>
+          <input
+            type="password"
+            id="loginPassword"
+            class="form-input"
+            placeholder="Enter your password"
+            autocomplete="current-password"
+            required
+          >
+          <button type="button" class="toggle-pass" id="togglePassBtn" onclick="togglePassword()" title="Show/Hide password">
+            <i class="fas fa-eye" id="togglePassIcon"></i>
+          </button>
+        </div>
+      </div>
+
+      <button type="submit" class="btn-login" id="loginBtn">
+        <i class="fas fa-shield-halved me-2" id="loginBtnIcon"></i>
+        <span id="loginBtnText">Sign In Securely</span>
+      </button>
+
+      <!-- Alert Box -->
+      <div class="alert-box alert-error" id="alertError">
+        <i class="fas fa-circle-exclamation" style="flex-shrink:0;"></i>
+        <span id="alertErrorMsg">Invalid username or password. Please try again.</span>
+      </div>
+      <div class="alert-box alert-success" id="alertSuccess">
+        <i class="fas fa-circle-check" style="flex-shrink:0;"></i>
+        <span>Login successful! Redirecting to dashboard...</span>
+      </div>
+
+    </form>
+
+    <!-- Footer -->
+    <div class="card-footer">
+      <div class="footer-text">
+        EPFO Cuttack · RRC Master Ledger Dashboard<br>
+        Confidential — Internal Use Only
+      </div>
+      <div class="footer-badge">
+        <i class="fas fa-database"></i> Powered by Supabase Cloud
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  const SUPABASE_URL = 'https://hdyojqbsbtptbsohgwlg.supabase.co';
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhkeW9qcWJzYnRwdGJzb2hnd2xnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzMzMzNjEsImV4cCI6MjA5OTkwOTM2MX0.95b7QbRS0nXTwTLsbtu2PhD7veehe8KQFWhaPCV-_RU';
+
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  // Redirect to dashboard if already logged in
+  (async () => {
+    const { data: { session } } = await sb.auth.getSession();
+    if (session) {
+      window.location.replace('index.html');
+    }
+  })();
+
+  /* ── Password toggle ─────────────────────────────────── */
+  function togglePassword() {
+    const input = document.getElementById('loginPassword');
+    const icon  = document.getElementById('togglePassIcon');
+    if (input.type === 'password') {
+      input.type = 'text';
+      icon.className = 'fas fa-eye-slash';
+    } else {
+      input.type = 'password';
+      icon.className = 'fas fa-eye';
+    }
+  }
+
+  /* ── Show/hide alerts ───────────────────────────────── */
+  function showError(msg) {
+    document.getElementById('alertErrorMsg').textContent = msg;
+    const el = document.getElementById('alertError');
+    el.classList.remove('show');
+    void el.offsetWidth; // reflow to retrigger animation
+    el.classList.add('show');
+    document.getElementById('alertSuccess').classList.remove('show');
+  }
+
+  function showSuccess() {
+    document.getElementById('alertError').classList.remove('show');
+    document.getElementById('alertSuccess').classList.add('show');
+  }
+
+  /* ── Set loading state ──────────────────────────────── */
+  function setLoading(loading) {
+    const btn     = document.getElementById('loginBtn');
+    const icon    = document.getElementById('loginBtnIcon');
+    const text    = document.getElementById('loginBtnText');
+    const emailIn = document.getElementById('loginEmail');
+    const passIn  = document.getElementById('loginPassword');
+
+    if (loading) {
+      btn.disabled = true;
+      icon.outerHTML = '<span class="btn-spinner" id="loginBtnIcon"></span>';
+      text.textContent = 'Authenticating...';
+      emailIn.disabled = true;
+      passIn.disabled  = true;
+    } else {
+      btn.disabled = false;
+      document.getElementById('loginBtnIcon').outerHTML = '<i class="fas fa-shield-halved me-2" id="loginBtnIcon"></i>';
+      text.textContent = 'Sign In Securely';
+      emailIn.disabled = false;
+      passIn.disabled  = false;
+    }
+  }
+
+  /* ── Handle Login ───────────────────────────────────── */
+  async function handleLogin(e) {
+    e.preventDefault();
+
+    const email    = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value;
+
+    if (!email || !password) {
+      showError('Please enter both email and password.');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const { data, error } = await sb.auth.signInWithPassword({ email, password });
+
+      if (error) {
+        setLoading(false);
+        showError('Invalid email or password. Please check your credentials and try again.');
+        // Shake the card
+        const card = document.querySelector('.login-card');
+        card.style.animation = 'none';
+        card.style.transform = 'translateX(-8px)';
+        setTimeout(() => { card.style.transition = 'transform 0.4s cubic-bezier(.36,.07,.19,.97)'; card.style.transform = 'translateX(0)'; }, 50);
+        return;
+      }
+
+      // ✅ Login successful
+      showSuccess();
+      setTimeout(() => {
+        window.location.replace('index.html');
+      }, 800);
+
+    } catch (err) {
+      setLoading(false);
+      showError('An unexpected error occurred. Please try again.');
+      console.error('Login error:', err);
+    }
+  }
+
+  // Allow Enter key from email field to jump to password
+  document.getElementById('loginEmail').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      document.getElementById('loginPassword').focus();
+    }
+  });
+</script>
+
+</body>
+</html>

@@ -33,9 +33,43 @@ function cleanStr(val) {
   return s === 'nan' ? '' : s;
 }
 
-const APP_VERSION = 'v2.6.6';
+const APP_VERSION = 'v2.7.2';
 
 const APP_RELEASE_LOG = [
+  {
+    version: 'v2.7.2',
+    date: '2026-07-27',
+    title: 'Action Taken Dropdown & Full Auto-Save on All Fields',
+    changes: [
+      'Added "Action Taken" dropdown to every certificate card with 5 stage options.',
+      'Options: Notice/Under Recovery Process, CP-1 Issued, Before CP-1 Estt Deposited, CP-1 & CP-5 Issued, Fully Recovered.',
+      'All case panel fields now auto-save to Supabase instantly on change — no manual save button needed.',
+      'Inline \"✓ Data Saved Successfully\" green badge appears on the card after every save.',
+      'Error states shown inline with red badge if Supabase update fails.',
+      'Data persists to Supabase and repopulates on every subsequent page load.'
+    ]
+  },
+  {
+    date: '2026-07-27',
+    title: 'IR / NIR Legal Case Tracking per Certificate',
+    changes: [
+      'Added IR / NIR case type field to every RRC certificate card.',
+      'IR (In Roll) is the default for all establishments with no legal challenge.',
+      'Selecting NIR reveals: Court/Forum (High Court, CGIT, etc.), Case No, and Case Filing Date.',
+      'All four fields saved to Supabase rrc_master (case_type, court_forum, case_no, case_date).',
+      'NIR records show a yellow info badge summarising the court, case number and date.',
+      'Added 4 new columns to rrc_master via DB migration.'
+    ]
+  },
+  {
+    changes: [
+      'Added a full-screen glassmorphism login page (login.html) with Supabase Auth integration.',
+      'Auth guard added to app.js — unauthenticated users are redirected to login page automatically.',
+      'Logged-in user email is displayed in the top navbar as a green user badge.',
+      'Logout button added to the top navbar — clears Supabase session and redirects to login.',
+      'Credentials stored securely in Supabase Auth (bcrypt-encrypted passwords, email-confirmed).'
+    ]
+  },
   {
     version: 'v2.5.4',
     date: '2026-07-26',
@@ -269,20 +303,42 @@ const APP_RELEASE_LOG = [
 ];
 
 // ------------------------------------------------------------------
-// Initialization & Data Loading
+// Authentication Guard & Logout
 // ------------------------------------------------------------------
-document.addEventListener('DOMContentLoaded', async () => {
+async function checkAuthAndInit() {
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  if (!session) {
+    // Not logged in — redirect to login page
+    window.location.replace('login.html');
+    return;
+  }
+
+  // Show user email badge + logout button
+  const userEmail = session.user.email || '';
+  const badge = document.getElementById('loggedInUserBadge');
+  const emailSpan = document.getElementById('loggedInUserEmail');
+  const logoutBtn = document.getElementById('logoutBtn');
+  if (badge) badge.style.display = 'inline-flex';
+  if (emailSpan) emailSpan.textContent = userEmail;
+  if (logoutBtn) logoutBtn.style.display = 'inline-flex';
+
+  // Continue normal initialization
   setTodayDateInputs();
-  // Set version badge
   const versionBadge = document.getElementById('appVersionBadge');
   if (versionBadge) {
     versionBadge.innerHTML = `<i class="fas fa-code-branch me-1"></i> Version ${APP_VERSION}`;
   }
-  // Clear any previously cached establishment selection state from browser localStorage
   localStorage.removeItem('rrc_manager_web_state');
   await loadAllData();
   clearDashboardData();
-});
+}
+
+async function handleLogout() {
+  showSaveStatus('⏳ Signing out...', 'var(--warning)');
+  await supabaseClient.auth.signOut();
+  window.location.replace('login.html');
+}
+
 
 function setTodayDateInputs() {
   const today = new Date().toISOString().split('T')[0];
@@ -1198,12 +1254,192 @@ function buildCertificateCard(row) {
   // Inner Date-Wise Receipt Ledger Card
   const receiptLedgerHtml = buildReceiptLedgerSection(row);
 
-  card.innerHTML = headerHtml + tableHtml + receiptLedgerHtml;
+  // IR / NIR Case Status Panel
+  const caseStatusHtml = buildCaseStatusPanel(row);
+
+  card.innerHTML = headerHtml + caseStatusHtml + tableHtml + receiptLedgerHtml;
   return card;
 }
 
 // ------------------------------------------------------------------
+// IR / NIR + Action Taken — Case Status Panel (Auto-Save)
+// ------------------------------------------------------------------
+const ACTION_TAKEN_OPTIONS = [
+  'Notice / Under Recovery Process',
+  'CP-1 Issued',
+  'Before CP-1 Issued the Estt Deposited fully amount',
+  'CP-1 & CP-5 Issued',
+  'Fully Recovered'
+];
+
+function buildCaseStatusPanel(row) {
+  const caseType    = cleanStr(row.case_type) || 'IR';
+  const forum       = cleanStr(row.court_forum);
+  const caseNo      = cleanStr(row.case_no);
+  const caseDate    = cleanStr(row.case_date) ? String(row.case_date).slice(0, 10) : '';
+  const actionTaken = cleanStr(row.action_taken);
+
+  const isNir = caseType === 'NIR';
+
+  const forumOptions = [
+    'HIGH COURT', 'SUPREME COURT', 'CGIT',
+    'DISTRICT COURT', 'LABOUR COURT', 'DRT', 'OTHERS'
+  ].map(f => `<option value="${f}" ${forum === f ? 'selected' : ''}>${f}</option>`).join('');
+
+  const actionOptions = ACTION_TAKEN_OPTIONS
+    .map(a => `<option value="${a}" ${actionTaken === a ? 'selected' : ''}>${a}</option>`)
+    .join('');
+
+  const nirFields = `
+    <div id="nir-fields-${row.id}" style="display:${isNir ? 'contents' : 'none'};">
+      <div>
+        <label class="form-label-sm"><i class="fas fa-landmark me-1"></i> Court / Forum</label>
+        <select id="case-forum-${row.id}" class="custom-select" style="padding: 8px 10px; font-size: 12px;"
+          onchange="saveCaseDetails(${row.id})">
+          <option value="">-- Select Forum --</option>
+          ${forumOptions}
+        </select>
+      </div>
+      <div>
+        <label class="form-label-sm"><i class="fas fa-hashtag me-1"></i> Case No</label>
+        <input type="text" id="case-no-${row.id}" class="custom-input"
+          placeholder="e.g. WP-1234/2024" value="${caseNo}"
+          onblur="saveCaseDetails(${row.id})"
+          onkeydown="if(event.key==='Enter') this.blur()">
+      </div>
+      <div>
+        <label class="form-label-sm"><i class="fas fa-calendar-alt me-1"></i> Case Filing Date</label>
+        <input type="date" id="case-date-${row.id}" class="custom-input" value="${caseDate}"
+          onchange="saveCaseDetails(${row.id})">
+      </div>
+    </div>
+  `;
+
+  return `
+    <div class="case-status-panel" id="case-panel-${row.id}">
+      <div class="case-panel-header">
+        <span style="font-size:12px; font-weight:700; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.08em;">
+          <i class="fas fa-clipboard-list me-1"></i> Case Status &amp; Action Taken
+        </span>
+        <span class="panel-save-msg" id="panel-save-msg-${row.id}"></span>
+      </div>
+      <div class="case-status-grid">
+
+        <!-- Case Type: IR / NIR -->
+        <div>
+          <label class="form-label-sm"><i class="fas fa-gavel me-1"></i> Case Type</label>
+          <div class="ir-nir-toggle">
+            <button id="btn-ir-${row.id}"
+              class="ir-nir-btn ${!isNir ? 'active-ir' : ''}"
+              onclick="onCaseTypeChange(${row.id}, 'IR')">
+              <i class="fas fa-check-circle me-1"></i> IR
+            </button>
+            <button id="btn-nir-${row.id}"
+              class="ir-nir-btn ${isNir ? 'active-nir' : ''}"
+              onclick="onCaseTypeChange(${row.id}, 'NIR')">
+              <i class="fas fa-balance-scale me-1"></i> NIR
+            </button>
+          </div>
+        </div>
+
+        <!-- NIR sub-fields (hidden for IR) -->
+        ${nirFields}
+
+        <!-- Action Taken (always visible) -->
+        <div style="min-width: 260px;">
+          <label class="form-label-sm"><i class="fas fa-tasks me-1"></i> Action Taken</label>
+          <select id="action-taken-${row.id}" class="custom-select"
+            style="padding: 8px 10px; font-size: 12px;"
+            onchange="saveActionTaken(${row.id})">
+            <option value="">-- Select Action --</option>
+            ${actionOptions}
+          </select>
+        </div>
+
+      </div>
+      ${isNir && forum ? `<div class="nir-info-badge"><i class="fas fa-info-circle me-1"></i> Case filed in <strong>${forum}</strong>${caseNo ? ' &nbsp;|&nbsp; Case No: <strong>' + caseNo + '</strong>' : ''}${caseDate ? ' &nbsp;|&nbsp; Filed: <strong>' + caseDate + '</strong>' : ''}</div>` : ''}
+    </div>
+  `;
+}
+
+function showPanelSaveMsg(rowId, success, msg) {
+  const el = document.getElementById(`panel-save-msg-${rowId}`);
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'panel-save-msg ' + (success ? 'panel-save-ok' : 'panel-save-err');
+  clearTimeout(el._timer);
+  el._timer = setTimeout(() => { el.textContent = ''; el.className = 'panel-save-msg'; }, 4000);
+}
+
+function onCaseTypeChange(rowId, newType) {
+  const btnIr  = document.getElementById(`btn-ir-${rowId}`);
+  const btnNir = document.getElementById(`btn-nir-${rowId}`);
+  const nirDiv = document.getElementById(`nir-fields-${rowId}`);
+
+  if (newType === 'IR') {
+    btnIr.className  = 'ir-nir-btn active-ir';
+    btnNir.className = 'ir-nir-btn';
+    nirDiv.style.display = 'none';
+  } else {
+    btnIr.className  = 'ir-nir-btn';
+    btnNir.className = 'ir-nir-btn active-nir';
+    nirDiv.style.display = 'contents';
+  }
+  saveCaseDetails(rowId);
+}
+
+async function saveCaseDetails(rowId) {
+  const btnIr = document.getElementById(`btn-ir-${rowId}`);
+  const isIr  = btnIr && btnIr.classList.contains('active-ir');
+  const caseType = isIr ? 'IR' : 'NIR';
+
+  const forum    = isIr ? null : (document.getElementById(`case-forum-${rowId}`)?.value || null);
+  const caseNo   = isIr ? null : (document.getElementById(`case-no-${rowId}`)?.value.trim() || null);
+  const caseDate = isIr ? null : (document.getElementById(`case-date-${rowId}`)?.value || null);
+
+  const { error } = await supabaseClient
+    .from('rrc_master')
+    .update({ case_type: caseType, court_forum: forum, case_no: caseNo, case_date: caseDate || null })
+    .eq('id', rowId);
+
+  if (error) {
+    showPanelSaveMsg(rowId, false, '⚠ Save failed: ' + error.message);
+    return;
+  }
+
+  const row = appData.master.find(r => r.id === rowId);
+  if (row) {
+    row.case_type   = caseType;
+    row.court_forum = forum;
+    row.case_no     = caseNo;
+    row.case_date   = caseDate;
+  }
+  showPanelSaveMsg(rowId, true, '✓ Data Saved Successfully');
+}
+
+async function saveActionTaken(rowId) {
+  const val = document.getElementById(`action-taken-${rowId}`)?.value || '';
+
+  const { error } = await supabaseClient
+    .from('rrc_master')
+    .update({ action_taken: val })
+    .eq('id', rowId);
+
+  if (error) {
+    showPanelSaveMsg(rowId, false, '⚠ Save failed: ' + error.message);
+    return;
+  }
+
+  const row = appData.master.find(r => r.id === rowId);
+  if (row) row.action_taken = val;
+
+  showPanelSaveMsg(rowId, true, '✓ Data Saved Successfully');
+}
+
+
+// ------------------------------------------------------------------
 // Date-Wise Receipt Ledger Section (per Certificate Card)
+
 // ------------------------------------------------------------------
 function buildReceiptLedgerSection(row) {
   const accounts = ['1', '2', '10', '21', '22'];
@@ -3252,3 +3488,7 @@ function exportAccountSplitCsv() {
   downloadCsvFile(csv, '5_Account_Revenue_Split_Report.csv');
 }
 
+// ------------------------------------------------------------------
+// Bootstrap — Auth Guard Entry Point
+// ------------------------------------------------------------------
+document.addEventListener('DOMContentLoaded', checkAuthAndInit);

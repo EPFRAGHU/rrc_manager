@@ -106,11 +106,17 @@
       </div>
       <div style="display: flex; align-items: center; gap: 10px;">
         <span id="appVersionBadge" style="background: rgba(108, 92, 231, 0.15); color: var(--accent); padding: 6px 14px; border-radius: 20px; font-size: 11px; font-weight: 700; border: 1px solid rgba(108, 92, 231, 0.3); cursor: pointer;" onclick="showVersionHistoryModal()" title="Click to view Version Release Changelog">
-          <i class="fas fa-code-branch me-1"></i> Version v2.6.6
+          <i class="fas fa-code-branch me-1"></i> Version v2.7.2
         </span>
         <span id="syncStatusBadge" style="background: var(--success-soft); color: var(--success); padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 600;">
           <i class="fas fa-database me-1"></i> Supabase Connected
         </span>
+        <span id="loggedInUserBadge" style="background: rgba(0,200,150,0.10); color: #00c896; padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; border: 1px solid rgba(0,200,150,0.25); display:none;">
+          <i class="fas fa-user-shield me-1"></i> <span id="loggedInUserEmail"></span>
+        </span>
+        <button id="logoutBtn" onclick="handleLogout()" title="Sign Out" style="background: rgba(255,92,122,0.12); color: #ff5c7a; border: 1px solid rgba(255,92,122,0.3); padding: 6px 14px; border-radius: 20px; font-size: 11px; font-weight: 700; cursor: pointer; transition: all 0.2s; display:none; font-family: inherit;" onmouseover="this.style.background='rgba(255,92,122,0.22)'" onmouseout="this.style.background='rgba(255,92,122,0.12)'">
+          <i class="fas fa-right-from-bracket me-1"></i> Logout
+        </button>
       </div>
     </header>
 
@@ -656,7 +662,7 @@
 </div>
 
 <!-- App Controller Script -->
-<script src="js/app.js?v=2.6.6"></script>
+<script src="js/app.js?v=2.7.2"></script>
 
 </body>
 </html>
