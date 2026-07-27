@@ -33,9 +33,30 @@ function cleanStr(val) {
   return s === 'nan' ? '' : s;
 }
 
-const APP_VERSION = 'v2.7.2';
+const APP_VERSION = 'v2.7.4';
 
 const APP_RELEASE_LOG = [
+  {
+    version: 'v2.7.4',
+    date: '2026-07-27',
+    title: 'GitHub Pages Deployment Support & Root Fallback',
+    changes: [
+      'Added root index.html redirect to enable seamless GitHub Pages deployment.',
+      'Created GitHub Actions workflow for automated deployments to epfraghu.github.io/rrc_manager/.',
+      'Provides standard HTTPS domain resolution to bypass office DNS/firewall restrictions.'
+    ]
+  },
+  {
+    version: 'v2.7.3',
+    date: '2026-07-27',
+    title: 'Period of Default Added to All RRC List Popups & PDF Exports',
+    changes: [
+      'Added "Period" column after "RRC No" in all three RRC list popup modals.',
+      'Applies to: Top Defaulters Watchlist, EO Filter RRCs, and Ageing Year Drill-Down.',
+      'Period column also added to all CSV exports and PDF exports for these three modules.',
+      'Period now appears after RRC No. in every table row and exported report.'
+    ]
+  },
   {
     version: 'v2.7.2',
     date: '2026-07-27',
@@ -594,7 +615,7 @@ function renderEoRrcPage(page) {
 
   let html = `<div class="table-responsive"><table class="ledger-table" id="eoRrcFilterTable"><thead><tr>
     <th>Sl. No.</th><th>EST Code</th><th>Establishment Name</th><th>Type</th>
-    <th>RRC No</th><th>District</th>
+    <th>RRC No</th><th>Period</th><th>District</th>
     <th class="text-end">Total Dues OB (₹)</th>
     <th class="text-end">Pending Amount (₹)</th>
     <th class="text-center">Action</th>
@@ -614,6 +635,7 @@ function renderEoRrcPage(page) {
         <td class="est-name-cell"><strong style="color:var(--text-primary);">${cleanStr(r.est_name)}</strong> <i class="fas fa-external-link-alt ms-1" style="font-size:10px;color:var(--accent);opacity:0.8;"></i></td>
         <td><span class="type-badge" onclick="event.stopPropagation(); closeModal('eoRrcFilterModal'); quickOpenEstablishment('${code}',${r.id},'${typeStr}')" style="cursor:pointer;">${typeStr}</span></td>
         <td>${rrcNo}</td>
+        <td style="font-size:11px;color:var(--text-secondary);">${cleanStr(r.period) || '-'}</td>
         <td>${cleanStr(r.district) || 'N/A'}</td>
         <td class="text-end">${fmtCur(ob)}</td>
         <td class="text-end val-pending">${fmtCur(pend)}</td>
@@ -633,19 +655,19 @@ function renderEoRrcPage(page) {
 function exportEoRrcFilterCsv() {
   const matches = appData.master.filter(r => (cleanStr(r.enforcement_officer) || 'UNASSIGNED') === _currentEoFilterName);
   const sorted = [...matches].sort((a, b) => cleanStr(a.est_name).localeCompare(cleanStr(b.est_name)));
-  let csv = `Enforcement Officer: ${_currentEoFilterName}\nRank,EST Code,EST Name,Type,RRC No,District,Total Dues OB,Pending Amount\n`;
+  let csv = `Enforcement Officer: ${_currentEoFilterName}\nRank,EST Code,EST Name,Type,RRC No,Period,District,Total Dues OB,Pending Amount\n`;
   sorted.forEach((r, idx) => {
-    csv += `${idx + 1},"${cleanStr(r.est_code)}","${cleanStr(r.est_name)}","${cleanStr(r.type)}","${cleanStr(r.rrc_no)}","${cleanStr(r.district)}",${r.recovery_ob || 0},${r.pending_curr_year || 0}\n`;
+    csv += `${idx + 1},"${cleanStr(r.est_code)}","${cleanStr(r.est_name)}","${cleanStr(r.type)}","${cleanStr(r.rrc_no)}","${cleanStr(r.period) || ''}","${cleanStr(r.district)}",${r.recovery_ob || 0},${r.pending_curr_year || 0}\n`;
   });
   const safeEo = _currentEoFilterName.replace(/[^a-zA-Z0-9_]/g, '_');
   downloadCsvFile(csv, `EO_RRC_Filter_${safeEo}.csv`);
 }
 
 function exportEoRrcFilterPdf() {
-  const headers = ['Sl.No', 'EST Code', 'Establishment Name', 'Type', 'RRC No', 'District', 'Total Dues OB (Rs.)', 'Pending Amount (Rs.)'];
+  const headers = ['Sl.No', 'EST Code', 'Establishment Name', 'Type', 'RRC No', 'Period', 'District', 'Total Dues OB (Rs.)', 'Pending Amount (Rs.)'];
   const rows = _eoRrcRecords.map((r, i) => [
     i + 1, cleanStr(r.est_code), cleanStr(r.est_name), cleanStr(r.type),
-    cleanStr(r.rrc_no), cleanStr(r.district) || 'N/A',
+    cleanStr(r.rrc_no), cleanStr(r.period) || '-', cleanStr(r.district) || 'N/A',
     fmtCur(parseFloat(r.recovery_ob) || 0).replace(/₹/g, 'Rs.'),
     fmtCur(parseFloat(r.pending_curr_year) || parseFloat(r.recovery_ob) || 0).replace(/₹/g, 'Rs.')
   ]);
@@ -2410,10 +2432,10 @@ function generateDataPdf(reportTitle, reportSubhead, headers, bodyRows, orientat
 // Individual PDF Exporters for Reports
 // Paginated modals use generateDataPdf with full data arrays; non-paginated use generateReportPdf from DOM
 function exportDefaultersPdf() {
-  const headers = ['Sl.No', 'EST Code', 'Establishment Name', 'Type', 'RRC No', 'District', 'Total Dues OB (Rs.)', 'Pending Amount (Rs.)'];
+  const headers = ['Sl.No', 'EST Code', 'Establishment Name', 'Type', 'RRC No', 'Period', 'District', 'Total Dues OB (Rs.)', 'Pending Amount (Rs.)'];
   const rows = _defaultersRecords.map((r, i) => [
     i + 1, cleanStr(r.est_code), cleanStr(r.est_name), cleanStr(r.type),
-    cleanStr(r.rrc_no), cleanStr(r.district) || 'N/A',
+    cleanStr(r.rrc_no), cleanStr(r.period) || '-', cleanStr(r.district) || 'N/A',
     fmtCur(parseFloat(r.recovery_ob) || 0).replace(/₹/g, 'Rs.'),
     fmtCur(parseFloat(r.pending_curr_year) || parseFloat(r.recovery_ob) || 0).replace(/₹/g, 'Rs.')
   ]);
@@ -2761,7 +2783,7 @@ function renderDefaultersPage(page) {
 
   let html = `<div class="table-responsive"><table class="ledger-table"><thead><tr>
     <th>Sl. No.</th><th>EST Code</th><th>Establishment Name</th><th>Type</th>
-    <th>RRC No</th><th>District</th>
+    <th>RRC No</th><th>Period</th><th>District</th>
     <th class="text-end">Total Dues OB (₹)</th>
     <th class="text-end">Pending Amount (₹)</th>
     <th class="text-center">Action</th>
@@ -2781,6 +2803,7 @@ function renderDefaultersPage(page) {
         <td class="est-name-cell"><strong style="color:var(--text-primary);">${cleanStr(r.est_name)}</strong> <i class="fas fa-external-link-alt ms-1" style="font-size:10px;color:var(--accent);opacity:0.8;"></i></td>
         <td><span class="type-badge" onclick="event.stopPropagation(); quickOpenEstablishment('${code}',${r.id},'${typeStr}')" style="cursor:pointer;">${typeStr}</span></td>
         <td>${rrcNo}</td>
+        <td style="font-size:11px;color:var(--text-secondary);">${cleanStr(r.period) || '-'}</td>
         <td>${cleanStr(r.district) || 'N/A'}</td>
         <td class="text-end">${fmtCur(ob)}</td>
         <td class="text-end val-pending">${fmtCur(pend)}</td>
@@ -2799,9 +2822,9 @@ function renderDefaultersPage(page) {
 
 function exportDefaultersCsv() {
   const sorted = [...appData.master].sort((a, b) => cleanStr(a.est_name).localeCompare(cleanStr(b.est_name)));
-  let csv = 'Rank,EST Code,EST Name,Type,RRC No,District,Total Dues OB,Pending Amount\n';
+  let csv = 'Rank,EST Code,EST Name,Type,RRC No,Period,District,Total Dues OB,Pending Amount\n';
   sorted.forEach((r, idx) => {
-    csv += `${idx + 1},"${cleanStr(r.est_code)}","${cleanStr(r.est_name)}","${cleanStr(r.type)}","${cleanStr(r.rrc_no)}","${cleanStr(r.district)}",${r.recovery_ob || 0},${r.pending_curr_year || 0}\n`;
+    csv += `${idx + 1},"${cleanStr(r.est_code)}","${cleanStr(r.est_name)}","${cleanStr(r.type)}","${cleanStr(r.rrc_no)}","${cleanStr(r.period) || ''}","${cleanStr(r.district)}",${r.recovery_ob || 0},${r.pending_curr_year || 0}\n`;
   });
   downloadCsvFile(csv, 'Top_Defaulters_Watchlist.csv');
 }
@@ -3144,7 +3167,7 @@ function renderAgeingDrilldownPage(page) {
 
   let html = `<div class="table-responsive"><table class="ledger-table" id="ageingDrilldownTable"><thead><tr>
     <th>Sl. No.</th><th>EST Code</th><th>Establishment Name</th><th>Type</th>
-    <th>RRC No</th><th>District</th><th>Enforcement Officer</th>
+    <th>RRC No</th><th>Period</th><th>District</th><th>Enforcement Officer</th>
     <th class="text-end">Total Dues OB (₹)</th>
     <th class="text-end">Recovered (₹)</th>
     <th class="text-end">Pending Amount (₹)</th>
@@ -3167,6 +3190,7 @@ function renderAgeingDrilldownPage(page) {
         <td class="est-name-cell"><strong style="color:var(--text-primary);">${cleanStr(r.est_name)}</strong> <i class="fas fa-external-link-alt ms-1" style="font-size:10px;color:var(--accent);opacity:0.8;"></i></td>
         <td><span class="type-badge" onclick="event.stopPropagation(); closeModal('ageingDrilldownModal'); quickOpenEstablishment('${code}',${r.id},'${typeStr}')" style="cursor:pointer;">${typeStr}</span></td>
         <td>${rrcNo}</td>
+        <td style="font-size:11px;color:var(--text-secondary);">${cleanStr(r.period) || '-'}</td>
         <td>${cleanStr(r.district) || 'N/A'}</td>
         <td style="font-size:13px;">${eo}</td>
         <td class="text-end">${fmtCur(ob)}</td>
@@ -3189,18 +3213,18 @@ function exportAgeingYearCsv() {
   const matches = appData.master
     .filter(r => (cleanStr(r.issued_year) || 'Unknown') === _currentAgeingYear)
     .sort((a, b) => cleanStr(a.est_name).localeCompare(cleanStr(b.est_name)));
-  let csv = `Issued Year: ${_currentAgeingYear}\nRank,EST Code,EST Name,Type,RRC No,District,Enforcement Officer,Total Dues OB,Recovered,Pending Amount\n`;
+  let csv = `Issued Year: ${_currentAgeingYear}\nRank,EST Code,EST Name,Type,RRC No,Period,District,Enforcement Officer,Total Dues OB,Recovered,Pending Amount\n`;
   matches.forEach((r, idx) => {
-    csv += `${idx + 1},"${cleanStr(r.est_code)}","${cleanStr(r.est_name)}","${cleanStr(r.type)}","${cleanStr(r.rrc_no)}","${cleanStr(r.district)}","${cleanStr(r.enforcement_officer) || 'Unassigned'}",${r.recovery_ob || 0},${r.recovered_curr_year || 0},${r.pending_curr_year || 0}\n`;
+    csv += `${idx + 1},"${cleanStr(r.est_code)}","${cleanStr(r.est_name)}","${cleanStr(r.type)}","${cleanStr(r.rrc_no)}","${cleanStr(r.period) || ''}","${cleanStr(r.district)}","${cleanStr(r.enforcement_officer) || 'Unassigned'}",${r.recovery_ob || 0},${r.recovered_curr_year || 0},${r.pending_curr_year || 0}\n`;
   });
   downloadCsvFile(csv, `RRC_Year_${_currentAgeingYear}.csv`);
 }
 
 function exportAgeingYearPdf() {
-  const headers = ['Sl.No', 'EST Code', 'Establishment Name', 'Type', 'RRC No', 'District', 'Enforcement Officer', 'Total Dues OB (Rs.)', 'Recovered (Rs.)', 'Pending Amount (Rs.)'];
+  const headers = ['Sl.No', 'EST Code', 'Establishment Name', 'Type', 'RRC No', 'Period', 'District', 'Enforcement Officer', 'Total Dues OB (Rs.)', 'Recovered (Rs.)', 'Pending Amount (Rs.)'];
   const rows = _ageingDrilldownRecords.map((r, i) => [
     i + 1, cleanStr(r.est_code), cleanStr(r.est_name), cleanStr(r.type),
-    cleanStr(r.rrc_no), cleanStr(r.district) || 'N/A',
+    cleanStr(r.rrc_no), cleanStr(r.period) || '-', cleanStr(r.district) || 'N/A',
     cleanStr(r.enforcement_officer) || 'Unassigned',
     fmtCur(parseFloat(r.recovery_ob) || 0).replace(/₹/g, 'Rs.'),
     fmtCur(parseFloat(r.recovered_curr_year) || 0).replace(/₹/g, 'Rs.'),
