@@ -33,9 +33,18 @@ function cleanStr(val) {
   return s === 'nan' ? '' : s;
 }
 
-const APP_VERSION = 'v2.7.6';
+const APP_VERSION = 'v2.7.7';
 
 const APP_RELEASE_LOG = [
+  {
+    version: 'v2.7.7',
+    date: '2026-07-27',
+    title: 'Login Page Script Syntax Fix & Auto-Recovery',
+    changes: [
+      'Fixed missing closing bracket syntax error in login.html keydown listener.',
+      'Restored login form interactivity and form submission.'
+    ]
+  },
   {
     version: 'v2.7.6',
     date: '2026-07-27',
