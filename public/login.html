@@ -582,7 +582,15 @@
       e.preventDefault();
       document.getElementById('loginPassword').focus();
     }
-  });
+  // Auto-redirect to dashboard if already logged in
+  (async function checkExistingSession() {
+    try {
+      const { data: { session } } = await sb.auth.getSession();
+      if (session) {
+        window.location.replace('index.html');
+      }
+    } catch (e) {}
+  })();
 </script>
 
 </body>

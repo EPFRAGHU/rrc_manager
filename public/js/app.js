@@ -33,9 +33,19 @@ function cleanStr(val) {
   return s === 'nan' ? '' : s;
 }
 
-const APP_VERSION = 'v2.7.5';
+const APP_VERSION = 'v2.7.6';
 
 const APP_RELEASE_LOG = [
+  {
+    version: 'v2.7.6',
+    date: '2026-07-27',
+    title: 'Instant Anti-FOUC Authentication Shield',
+    changes: [
+      'Added synchronous pre-render auth guard in head of index.html to prevent flash of unauthenticated dashboard content.',
+      'Hidden body by default until Supabase session verification finishes.',
+      'Added auto-redirect on login.html if user is already authenticated.'
+    ]
+  },
   {
     version: 'v2.7.5',
     date: '2026-07-27',
@@ -339,9 +349,16 @@ const APP_RELEASE_LOG = [
 async function checkAuthAndInit() {
   const { data: { session } } = await supabaseClient.auth.getSession();
   if (!session) {
-    // Not logged in — redirect to login page
+    // Not logged in — redirect to login page instantly
     window.location.replace('login.html');
     return;
+  }
+
+  // Session valid — unhide body safely
+  if (document.body) {
+    document.body.style.setProperty('display', 'block', 'important');
+    document.body.style.setProperty('visibility', 'visible', 'important');
+    document.body.style.setProperty('opacity', '1', 'important');
   }
 
   // Show user email badge + logout button

@@ -18,6 +18,31 @@
   <!-- jsPDF & AutoTable for official PDF exports -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+
+  <!-- Instant Anti-FOUC Auth Shield: Prevents flash of unauthenticated dashboard content -->
+  <style>
+    body { display: none !important; opacity: 0 !important; visibility: hidden !important; }
+  </style>
+  <script>
+    (function() {
+      var hasSession = false;
+      try {
+        for (var i = 0; i < localStorage.length; i++) {
+          var k = localStorage.key(i);
+          if (k && (k.startsWith('sb-') || k.includes('supabase')) && k.endsWith('-auth-token')) {
+            var item = localStorage.getItem(k);
+            if (item && item.includes('access_token')) {
+              hasSession = true;
+              break;
+            }
+          }
+        }
+      } catch (e) {}
+      if (!hasSession) {
+        window.location.replace('login.html');
+      }
+    })();
+  </script>
 </head>
 <body>
 
@@ -106,7 +131,7 @@
       </div>
       <div style="display: flex; align-items: center; gap: 10px;">
         <span id="appVersionBadge" style="background: rgba(108, 92, 231, 0.15); color: var(--accent); padding: 6px 14px; border-radius: 20px; font-size: 11px; font-weight: 700; border: 1px solid rgba(108, 92, 231, 0.3); cursor: pointer;" onclick="showVersionHistoryModal()" title="Click to view Version Release Changelog">
-          <i class="fas fa-code-branch me-1"></i> Version v2.7.5
+          <i class="fas fa-code-branch me-1"></i> Version v2.7.6
         </span>
         <span id="syncStatusBadge" style="background: var(--success-soft); color: var(--success); padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 600;">
           <i class="fas fa-database me-1"></i> Supabase Connected
@@ -662,7 +687,7 @@
 </div>
 
 <!-- App Controller Script -->
-<script src="js/app.js?v=2.7.5"></script>
+<script src="js/app.js?v=2.7.6"></script>
 
 </body>
 </html>
