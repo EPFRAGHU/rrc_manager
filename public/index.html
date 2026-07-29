@@ -131,7 +131,7 @@
       </div>
       <div style="display: flex; align-items: center; gap: 10px;">
         <span id="appVersionBadge" style="background: rgba(108, 92, 231, 0.15); color: var(--accent); padding: 6px 14px; border-radius: 20px; font-size: 11px; font-weight: 700; border: 1px solid rgba(108, 92, 231, 0.3); cursor: pointer;" onclick="showVersionHistoryModal()" title="Click to view Version Release Changelog">
-          <i class="fas fa-code-branch me-1"></i> Version v2.8.2
+          <i class="fas fa-code-branch me-1"></i> Version v2.9.0
         </span>
         <span id="syncStatusBadge" style="background: var(--success-soft); color: var(--success); padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 600;">
           <i class="fas fa-database me-1"></i> Supabase Connected
@@ -665,6 +665,67 @@
   </div>
 </div>
 
+<!-- EDIT PAYMENT RECEIPT MODAL -->
+<div class="modal-overlay" id="editReceiptModal" style="z-index: 1300;">
+  <div class="modal-container" style="max-width: 650px;">
+    <div class="modal-header">
+      <div>
+        <h3 style="margin: 0; font-size: 16px;" id="editReceiptModalTitle"><i class="fas fa-edit me-2" style="color: var(--accent);"></i> Edit Payment Receipt Record</h3>
+        <span style="font-size: 12px; color: var(--text-secondary);" id="editReceiptModalSubhead">Modify payment date, receipt number, or account breakdown</span>
+      </div>
+      <button class="modal-close-btn" onclick="closeModal('editReceiptModal')">&times;</button>
+    </div>
+    <div class="modal-body" style="padding: 20px;">
+      <input type="hidden" id="editRcptGKey" value="">
+      <input type="hidden" id="editRcptRowId" value="">
+      
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px;">
+        <div>
+          <label class="form-label-sm">Payment Date</label>
+          <input type="date" id="editRcptDate" class="custom-input">
+        </div>
+        <div>
+          <label class="form-label-sm">Receipt / Challan No</label>
+          <input type="text" id="editRcptNo" class="custom-input" placeholder="CH-1001">
+        </div>
+      </div>
+
+      <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; padding: 14px; margin-bottom: 16px;">
+        <div style="font-size: 12px; font-weight: 700; color: var(--text-secondary); margin-bottom: 10px; text-transform: uppercase;">
+          Account Deposit Breakdown (₹)
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
+          <div>
+            <label class="form-label-sm">Acc 1 (₹)</label>
+            <input type="number" id="editRcptAmt-1" class="custom-input text-end" placeholder="0.00">
+          </div>
+          <div>
+            <label class="form-label-sm">Acc 2 (₹)</label>
+            <input type="number" id="editRcptAmt-2" class="custom-input text-end" placeholder="0.00">
+          </div>
+          <div>
+            <label class="form-label-sm">Acc 10 (₹)</label>
+            <input type="number" id="editRcptAmt-10" class="custom-input text-end" placeholder="0.00">
+          </div>
+          <div>
+            <label class="form-label-sm">Acc 21 (₹)</label>
+            <input type="number" id="editRcptAmt-21" class="custom-input text-end" placeholder="0.00">
+          </div>
+          <div>
+            <label class="form-label-sm">Acc 22 (₹)</label>
+            <input type="number" id="editRcptAmt-22" class="custom-input text-end" placeholder="0.00">
+          </div>
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px;">
+        <button class="sidebar-btn btn-outline" style="width: auto; margin: 0; padding: 8px 18px;" onclick="closeModal('editReceiptModal')">Cancel</button>
+        <button class="sidebar-btn btn-accent" style="width: auto; margin: 0; padding: 8px 22px;" onclick="updateReceiptEntry()"><i class="fas fa-save me-1"></i> Save Changes</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- VERSION RELEASE HISTORY & CHANGELOG MODAL -->
 <div class="modal-overlay" id="versionHistoryModal">
   <div class="modal-container" style="max-width: 950px; max-height: 90vh; overflow-y: auto;">
@@ -687,7 +748,7 @@
 </div>
 
 <!-- App Controller Script -->
-<script src="js/app.js?v=2.8.2"></script>
+<script src="js/app.js?v=2.9.0"></script>
 
 </body>
 </html>

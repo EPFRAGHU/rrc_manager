@@ -33,9 +33,19 @@ function cleanStr(val) {
   return s === 'nan' ? '' : s;
 }
 
-const APP_VERSION = 'v2.8.2';
+const APP_VERSION = 'v2.9.0';
 
 const APP_RELEASE_LOG = [
+  {
+    version: 'v2.9.0',
+    date: '2026-07-30',
+    title: 'Payment Receipt Record Edit Functionality across Establishment Ledgers',
+    changes: [
+      'Added Edit button to Date-Wise Payment Receipts Ledger table before the Delete button.',
+      'Added Edit Payment Receipt Modal (editReceiptModal) supporting payment date, receipt/challan no, and 5-account deposit edits.',
+      'Implemented updateReceiptEntry to sync edited payment records directly to Supabase recovery_log and recalculate rrc_master balances.'
+    ]
+  },
   {
     version: 'v2.8.2',
     date: '2026-07-30',
@@ -1680,9 +1690,14 @@ function buildReceiptLedgerSection(row) {
         ${accounts.map(ac => `<td class="text-end">${accSums[ac] > 0 ? fmtCur(accSums[ac]) : '-'}</td>`).join('')}
         <td class="text-end val-cleared">${fmtCur(rowTotal)}</td>
         <td class="text-center">
-          <button class="sidebar-btn btn-outline" style="width: 28px; height: 28px; padding: 0; margin: 0; display: inline-flex;" title="Delete Receipt" onclick="deleteReceiptGroup('${safeGKey}', ${row.id})">
-            <i class="fas fa-trash-alt" style="color: var(--danger);"></i>
-          </button>
+          <div style="display: inline-flex; gap: 6px; align-items: center; justify-content: center;">
+            <button class="sidebar-btn btn-outline" style="width: 28px; height: 28px; padding: 0; margin: 0; display: inline-flex; align-items: center; justify-content: center;" title="Edit Receipt" onclick="editReceiptGroup('${safeGKey}', ${row.id})">
+              <i class="fas fa-edit" style="color: var(--accent);"></i>
+            </button>
+            <button class="sidebar-btn btn-outline" style="width: 28px; height: 28px; padding: 0; margin: 0; display: inline-flex; align-items: center; justify-content: center;" title="Delete Receipt" onclick="deleteReceiptGroup('${safeGKey}', ${row.id})">
+              <i class="fas fa-trash-alt" style="color: var(--danger);"></i>
+            </button>
+          </div>
         </td>
       </tr>
     `;
@@ -2100,6 +2115,201 @@ async function deleteReceiptGroup(gKey, rowId) {
   showSaveStatus('✓ Receipt deleted & totals updated', 'var(--success)');
   updateGlobalMetrics();
   refreshEstablishmentCardView(rowId, estCode);
+}
+
+// ------------------------------------------------------------------
+// Edit Payment Receipt Record Modal & Submission Engine
+// ------------------------------------------------------------------
+function editReceiptGroup(gKey, rowId) {
+  const row = appData.master.find(r => r.id === rowId);
+  if (!row) return;
+
+  const targetEstCode = cleanStr(row.est_code);
+  const targetType = cleanStr(row.type);
+
+  // Find all log entries for this receipt group
+  const group = appData.recoveryLog.filter(l => {
+    if (l.txn_id && l.txn_id === gKey) return true;
+    const lDt = l.date ? String(l.date).slice(0, 10) : '';
+    const lRcpt = cleanStr(l.receipt_no);
+    const estC = cleanStr(l.est_code);
+    const t = cleanStr(l.type);
+
+    const matchesKey = (l.txn_id === gKey) ||
+                       (`${l.date}___${l.receipt_no || ''}` === gKey) ||
+                       (`${lDt}___${lRcpt}` === gKey) ||
+                       (gKey.includes(lDt) && lRcpt && gKey.includes(lRcpt));
+
+    return matchesKey && (estC === targetEstCode) && (t === targetType);
+  });
+
+  if (group.length === 0) {
+    alert('Could not find the receipt record to edit.');
+    return;
+  }
+
+  const dt = group[0].date ? String(group[0].date).slice(0, 10) : new Date().toISOString().split('T')[0];
+  const rcptNo = cleanStr(group[0].receipt_no);
+
+  let accSums = { '1': 0, '2': 0, '10': 0, '21': 0, '22': 0 };
+  group.forEach(g => {
+    const ac = cleanStr(g.account);
+    const amt = parseFloat(g.amount_deposited) || 0;
+    if (accSums[ac] !== undefined) accSums[ac] += amt;
+  });
+
+  document.getElementById('editRcptGKey').value = gKey;
+  document.getElementById('editRcptRowId').value = rowId;
+  document.getElementById('editRcptDate').value = dt;
+  document.getElementById('editRcptNo').value = rcptNo;
+
+  const accounts = ['1', '2', '10', '21', '22'];
+  accounts.forEach(ac => {
+    const val = accSums[ac];
+    document.getElementById(`editRcptAmt-${ac}`).value = val > 0 ? val : '';
+  });
+
+  document.getElementById('editReceiptModalTitle').innerHTML = `<i class="fas fa-edit me-2" style="color: var(--accent);"></i> Edit Payment Receipt — ${cleanStr(row.est_name)}`;
+  document.getElementById('editReceiptModalSubhead').textContent = `${cleanStr(row.est_name)} (${targetEstCode}) • RRC: ${cleanStr(row.rrc_no)} • Type: ${targetType}`;
+
+  openModal('editReceiptModal');
+}
+
+async function updateReceiptEntry() {
+  const gKey = document.getElementById('editRcptGKey').value;
+  const rowId = parseInt(document.getElementById('editRcptRowId').value, 10);
+
+  const row = appData.master.find(r => r.id === rowId);
+  if (!row) {
+    alert('Invalid establishment record.');
+    return;
+  }
+
+  const dateVal = document.getElementById('editRcptDate').value;
+  const rcptNo = document.getElementById('editRcptNo').value.trim();
+
+  if (!dateVal) {
+    alert('Please enter a valid payment date.');
+    return;
+  }
+
+  const accounts = ['1', '2', '10', '21', '22'];
+  let updatedAcAmounts = {};
+  let totalNewAmt = 0;
+
+  accounts.forEach(ac => {
+    const input = document.getElementById(`editRcptAmt-${ac}`);
+    const rawVal = String(input.value || '').replace(/,/g, '').trim();
+    const amt = parseFloat(rawVal) || 0;
+    updatedAcAmounts[ac] = amt;
+    totalNewAmt += amt;
+  });
+
+  if (totalNewAmt <= 0) {
+    alert('Please enter a deposit amount for at least one account.');
+    return;
+  }
+
+  showSaveStatus('⏳ Updating payment receipt in Supabase...', 'var(--warning)');
+
+  // 1. Identify all matching receipt log records in appData.recoveryLog
+  const targetEstCode = cleanStr(row.est_code);
+  const targetType = cleanStr(row.type);
+
+  let toDelete = appData.recoveryLog.filter(l => {
+    if (l.txn_id && l.txn_id === gKey) return true;
+    const lDt = l.date ? String(l.date).slice(0, 10) : '';
+    const lRcpt = cleanStr(l.receipt_no);
+    const estC = cleanStr(l.est_code);
+    const t = cleanStr(l.type);
+    const matchesKey = (l.txn_id === gKey) || (`${l.date}___${l.receipt_no || ''}` === gKey) || (`${lDt}___${lRcpt}` === gKey) || (gKey.includes(lDt) && lRcpt && gKey.includes(lRcpt));
+    return matchesKey && (estC === targetEstCode) && (t === targetType);
+  });
+
+  const deleteIds = toDelete.map(l => l.id).filter(Boolean);
+  const deleteTxnIds = Array.from(new Set(toDelete.map(l => l.txn_id).filter(Boolean)));
+  const toDeleteSet = new Set(toDelete);
+
+  // 2. Remove old records from memory
+  appData.recoveryLog = appData.recoveryLog.filter(l => !toDeleteSet.has(l) && (!l.id || !deleteIds.includes(l.id)));
+
+  // Delete from Supabase
+  if (deleteTxnIds.length > 0) {
+    for (const tId of deleteTxnIds) {
+      await supabaseClient.from('recovery_log').delete().eq('txn_id', tId);
+    }
+  }
+  if (deleteIds.length > 0) {
+    await supabaseClient.from('recovery_log').delete().in('id', deleteIds);
+  }
+
+  // 3. Build new entries for positive account amounts
+  let newEntries = [];
+  let txnId = 'TXN_' + Date.now();
+
+  accounts.forEach(ac => {
+    const amt = updatedAcAmounts[ac];
+    if (amt > 0) {
+      newEntries.push({
+        txn_id: txnId,
+        date: dateVal,
+        receipt_no: rcptNo,
+        est_name: cleanStr(row.est_name),
+        est_code: cleanStr(row.est_code),
+        rrc_no: cleanStr(row.rrc_no),
+        type: cleanStr(row.type),
+        account: ac,
+        amount_deposited: amt,
+        period: cleanStr(row.period)
+      });
+    }
+  });
+
+  const { data, error } = await supabaseClient.from('recovery_log').insert(newEntries).select();
+  if (error) {
+    showSaveStatus('⚠ Error updating receipt: ' + error.message, 'var(--danger)');
+    alert('Error updating receipt: ' + error.message);
+    return;
+  }
+
+  appData.recoveryLog = (data || newEntries).concat(appData.recoveryLog);
+
+  // 4. Recalculate certificate account paid & pending totals
+  for (const ac of accounts) {
+    const certLogs = appData.recoveryLog.filter(l => cleanStr(l.est_code) === targetEstCode && cleanStr(l.type) === targetType && cleanStr(l.account) === ac);
+    const acTotalPaid = certLogs.reduce((sum, l) => sum + (parseFloat(l.amount_deposited) || 0), 0);
+    const ob = parseFloat(row[`acc_${ac}_ob`]) || 0;
+    row[`acc_${ac}_paid`] = acTotalPaid;
+    row[`acc_${ac}_pending`] = ob - acTotalPaid;
+  }
+
+  let totalOb = 0, totalPaid = 0, totalPending = 0;
+  accounts.forEach(a => {
+    totalOb += parseFloat(row[`acc_${a}_ob`]) || 0;
+    totalPaid += parseFloat(row[`acc_${a}_paid`]) || 0;
+    totalPending += parseFloat(row[`acc_${a}_pending`]) || 0;
+  });
+
+  row.recovery_ob = totalOb;
+  row.recovered_curr_year = totalPaid;
+  row.pending_curr_year = totalPending;
+  if (totalPending <= 0) row.fully_recovered = 'Yes';
+  else row.fully_recovered = '';
+
+  await supabaseClient.from('rrc_master').update({
+    acc_1_paid: row.acc_1_paid, acc_1_pending: row.acc_1_pending,
+    acc_2_paid: row.acc_2_paid, acc_2_pending: row.acc_2_pending,
+    acc_10_paid: row.acc_10_paid, acc_10_pending: row.acc_10_pending,
+    acc_21_paid: row.acc_21_paid, acc_21_pending: row.acc_21_pending,
+    acc_22_paid: row.acc_22_paid, acc_22_pending: row.acc_22_pending,
+    recovery_ob: totalOb, recovered_curr_year: totalPaid, pending_curr_year: totalPending,
+    fully_recovered: row.fully_recovered
+  }).eq('id', rowId);
+
+  closeModal('editReceiptModal');
+  showSaveStatus('✓ Payment receipt updated & synced successfully!', 'var(--success)');
+  updateGlobalMetrics();
+  refreshEstablishmentCardView(rowId, targetEstCode);
 }
 
 // ------------------------------------------------------------------
