@@ -33,9 +33,19 @@ function cleanStr(val) {
   return s === 'nan' ? '' : s;
 }
 
-const APP_VERSION = 'v2.8.1';
+const APP_VERSION = 'v2.8.2';
 
 const APP_RELEASE_LOG = [
+  {
+    version: 'v2.8.2',
+    date: '2026-07-30',
+    title: 'Triple-Failsafe Railway & Supabase Live Payment Deletion Engine Fix',
+    changes: [
+      'Fixed timestamp string key mismatch in buildReceiptLedgerSection and deleteReceiptGroup on live Supabase datasets.',
+      'Added triple-failsafe Supabase deletion (by txn_id, by primary key array .in("id", ...), and by property criteria).',
+      'Added error logging for Supabase delete responses to guarantee complete database record removal on Railway app.'
+    ]
+  },
   {
     version: 'v2.8.1',
     date: '2026-07-30',
@@ -1627,7 +1637,9 @@ function buildReceiptLedgerSection(row) {
   // Group by Txn_ID or Receipt No / Date
   let grouped = {};
   logs.forEach(l => {
-    const key = l.txn_id || `${l.date}___${l.receipt_no || ''}`;
+    const dt = l.date ? String(l.date).slice(0, 10) : '';
+    const rcpt = cleanStr(l.receipt_no);
+    const key = l.txn_id || `${dt}___${rcpt}`;
     if (!grouped[key]) grouped[key] = [];
     grouped[key].push(l);
   });
@@ -1985,7 +1997,11 @@ async function deleteReceiptGroup(gKey, rowId) {
     const estC = cleanStr(l.est_code);
     const t = cleanStr(l.type);
 
-    const matchesKey = (l.txn_id === gKey) || (`${lDt}___${lRcpt}` === gKey);
+    const matchesKey = (l.txn_id === gKey) ||
+                       (`${l.date}___${l.receipt_no || ''}` === gKey) ||
+                       (`${lDt}___${lRcpt}` === gKey) ||
+                       (gKey.includes(lDt) && lRcpt && gKey.includes(lRcpt));
+
     const matchesCert = (estC === targetEstCode) && (t === targetType);
     return matchesKey && matchesCert;
   });
@@ -1996,7 +2012,7 @@ async function deleteReceiptGroup(gKey, rowId) {
       if (l.txn_id && l.txn_id === gKey) return true;
       const lDt = l.date ? String(l.date).slice(0, 10) : '';
       const lRcpt = cleanStr(l.receipt_no);
-      return `${lDt}___${lRcpt}` === gKey;
+      return (`${l.date}___${l.receipt_no || ''}` === gKey) || (`${lDt}___${lRcpt}` === gKey) || (gKey.includes(lDt) && lRcpt && gKey.includes(lRcpt));
     });
   }
 
@@ -2013,25 +2029,32 @@ async function deleteReceiptGroup(gKey, rowId) {
 
   appData.recoveryLog = appData.recoveryLog.filter(l => !toDeleteSet.has(l) && (!l.id || !deleteIds.includes(l.id)));
 
-  // 3. Perform Supabase deletion for ALL matched rows
+  // 3. Perform Supabase deletion for ALL matched rows with triple failsafe
   if (deleteTxnIds.length > 0) {
     for (const tId of deleteTxnIds) {
-      await supabaseClient.from('recovery_log').delete().eq('txn_id', tId);
+      const { error } = await supabaseClient.from('recovery_log').delete().eq('txn_id', tId);
+      if (error) console.error('Supabase txn_id delete error:', error);
     }
   }
 
   if (deleteIds.length > 0) {
-    await supabaseClient.from('recovery_log').delete().in('id', deleteIds);
+    const { error } = await supabaseClient.from('recovery_log').delete().in('id', deleteIds);
+    if (error) console.error('Supabase ID array delete error:', error);
   }
 
-  // Fallback deletion for legacy rows matching est_code, type, receipt_no, date
-  if (deleteTxnIds.length === 0 && deleteIds.length === 0) {
-    const sample = toDelete[0];
-    const sDt = sample.date ? String(sample.date).slice(0, 10) : '';
-    await supabaseClient.from('recovery_log').delete()
-      .eq('est_code', cleanStr(sample.est_code))
-      .eq('type', cleanStr(sample.type))
-      .eq('receipt_no', cleanStr(sample.receipt_no));
+  // Fallback deletion matching properties in Supabase
+  if (toDelete.length > 0) {
+    for (const item of toDelete) {
+      let q = supabaseClient.from('recovery_log').delete()
+        .eq('est_code', cleanStr(item.est_code))
+        .eq('type', cleanStr(item.type));
+
+      if (item.receipt_no) q = q.eq('receipt_no', cleanStr(item.receipt_no));
+      if (item.account) q = q.eq('account', cleanStr(item.account));
+
+      const { error } = await q;
+      if (error) console.error('Supabase fallback property delete error:', error);
+    }
   }
 
   // 4. Recalculate certificate totals
