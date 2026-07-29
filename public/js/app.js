@@ -33,9 +33,53 @@ function cleanStr(val) {
   return s === 'nan' ? '' : s;
 }
 
-const APP_VERSION = 'v2.7.7';
+const APP_VERSION = 'v2.8.1';
 
 const APP_RELEASE_LOG = [
+  {
+    version: 'v2.8.1',
+    date: '2026-07-30',
+    title: 'Added Period of Default & Total Payment Received across PDF Reports',
+    changes: [
+      'Added "Total Payment Received (Rs.)" column across all PDF exports (Top Defaulters, EO Pending List, Ageing Year Drill-Down, Action Taken).',
+      'Ensured Period of Default is included alongside RRC number and establishment metrics in all report exports.',
+      'Updated PDF autoTable column metric alignment for right-aligned monetary numbers across all PDF modules.'
+    ]
+  },
+  {
+    version: 'v2.8.0',
+    date: '2026-07-30',
+    title: 'Robust Multi-Row Receipt Deletion & Supabase Database Sync Fix',
+    changes: [
+      'Fixed payment deletion (deleteReceiptGroup) for legacy and multi-account payment receipts in recovery_log.',
+      'Now deletes all matching account records by primary key IDs (.in("id", ...)) and txn_id in Supabase.',
+      'Normalized date string parsing to ensure exact key matching across ISO timestamps and YYYY-MM-DD values.',
+      'Recalculated establishment account balances and synced fully_recovered status back to Supabase rrc_master instantly.'
+    ]
+  },
+  {
+    version: 'v2.7.9',
+    date: '2026-07-30',
+    title: 'Instant Day-to-Date Payment Receipt Entry & Deletion Refresh Fix',
+    changes: [
+      'Fixed payment receipt recording (saveReceiptEntry) and deletion (deleteReceiptGroup) when opened via popup modals.',
+      'Added refreshEstablishmentCardView smart refresh engine to update both Quick Establishment Ledger modal and Search tab simultaneously.',
+      'Scoped form element lookups to active popup containers to avoid ID collision.',
+      'Escaped transaction keys in deleteReceiptGroup onclick handler to handle special characters cleanly.'
+    ]
+  },
+  {
+    version: 'v2.7.8',
+    date: '2026-07-30',
+    title: 'Full-Dataset Multi-Column Sorting for Top Defaulters & Paginated Modals',
+    changes: [
+      'Top Defaulters Watchlist table header sorting now sorts ALL records in the module dataset, not just the single page.',
+      'Default initial sort order set to Pending Amount (Highest Dues first) for Top Defaulters Watchlist.',
+      'Added interactive column header sorting (Ascending/Descending) to EST Code, Establishment Name, Type, RRC No, Period, District, Total Dues OB, and Pending Amount.',
+      'CSV and PDF exports now respect the active full-dataset sort order selected by the user.',
+      'Applied full-dataset column header sorting to EO Pending RRC List and Ageing Year Drill-Down modals.'
+    ]
+  },
   {
     version: 'v2.7.7',
     date: '2026-07-27',
@@ -626,18 +670,82 @@ function makePaginationBar(total, page, callbackFn) {
 // -----------------------------------------------------------------------
 let _currentEoFilterName = '';
 let _eoRrcRecords = [];
+let _eoRrcSortKey = 'pending';
+let _eoRrcSortAsc = false;
+
+function _sortEoRrcDataset() {
+  _eoRrcRecords.sort((a, b) => {
+    let valA, valB;
+    if (_eoRrcSortKey === 'pending') {
+      valA = parseFloat(a.pending_curr_year) || parseFloat(a.recovery_ob) || 0;
+      valB = parseFloat(b.pending_curr_year) || parseFloat(b.recovery_ob) || 0;
+    } else if (_eoRrcSortKey === 'total_dues') {
+      valA = parseFloat(a.recovery_ob) || 0;
+      valB = parseFloat(b.recovery_ob) || 0;
+    } else if (_eoRrcSortKey === 'est_name') {
+      valA = cleanStr(a.est_name);
+      valB = cleanStr(b.est_name);
+    } else if (_eoRrcSortKey === 'est_code') {
+      valA = cleanStr(a.est_code);
+      valB = cleanStr(b.est_code);
+    } else if (_eoRrcSortKey === 'type') {
+      valA = cleanStr(a.type);
+      valB = cleanStr(b.type);
+    } else if (_eoRrcSortKey === 'rrc_no') {
+      valA = cleanStr(a.rrc_no);
+      valB = cleanStr(b.rrc_no);
+    } else if (_eoRrcSortKey === 'period') {
+      valA = cleanStr(a.period);
+      valB = cleanStr(b.period);
+    } else if (_eoRrcSortKey === 'district') {
+      valA = cleanStr(a.district);
+      valB = cleanStr(b.district);
+    } else {
+      valA = cleanStr(a.est_name);
+      valB = cleanStr(b.est_name);
+    }
+
+    let comp = 0;
+    if (typeof valA === 'number' && typeof valB === 'number') {
+      comp = valA - valB;
+    } else {
+      comp = String(valA).localeCompare(String(valB), undefined, { numeric: true, sensitivity: 'base' });
+    }
+
+    if (comp !== 0) {
+      return _eoRrcSortAsc ? comp : -comp;
+    }
+    const nameComp = cleanStr(a.est_name).localeCompare(cleanStr(b.est_name));
+    if (nameComp !== 0) return nameComp;
+    return getCertificateLegalWeight(a.type) - getCertificateLegalWeight(b.type);
+  });
+}
+
+function sortEoRrcBy(key) {
+  if (_eoRrcSortKey === key) {
+    _eoRrcSortAsc = !_eoRrcSortAsc;
+  } else {
+    _eoRrcSortKey = key;
+    _eoRrcSortAsc = (key === 'pending' || key === 'total_dues') ? false : true;
+  }
+  _sortEoRrcDataset();
+  renderEoRrcPage(1);
+}
 
 function filterByEo(eoName) {
   const matches = appData.master.filter(r => (cleanStr(r.enforcement_officer) || 'UNASSIGNED') === eoName);
   if (matches.length === 0) return alert('No certificates found for ' + eoName);
 
   _currentEoFilterName = eoName;
-  _eoRrcRecords = [...matches].sort((a, b) => cleanStr(a.est_name).localeCompare(cleanStr(b.est_name)));
+  _eoRrcRecords = [...matches];
+  _eoRrcSortKey = 'pending';
+  _eoRrcSortAsc = false;
+  _sortEoRrcDataset();
 
   const titleEl = document.getElementById('eoRrcFilterTitle');
   const subEl = document.getElementById('eoRrcFilterSubtitle');
   if (titleEl) titleEl.innerHTML = `<i class="fas fa-user-shield me-2" style="color: var(--accent);"></i> ${eoName} — Pending RRC List`;
-  if (subEl) subEl.textContent = `${_eoRrcRecords.length} Recovery Certificate${_eoRrcRecords.length !== 1 ? 's' : ''} assigned · sorted alphabetically by establishment name`;
+  if (subEl) subEl.textContent = `${_eoRrcRecords.length} Recovery Certificate${_eoRrcRecords.length !== 1 ? 's' : ''} assigned · sorted by pending amount`;
 
   renderEoRrcPage(1);
   openModal('eoRrcFilterModal');
@@ -649,11 +757,16 @@ function renderEoRrcPage(page) {
   const start = (page - 1) * RRC_PAGE_SIZE;
   const pageRecs = records.slice(start, start + RRC_PAGE_SIZE);
 
-  let html = `<div class="table-responsive"><table class="ledger-table" id="eoRrcFilterTable"><thead><tr>
-    <th>Sl. No.</th><th>EST Code</th><th>Establishment Name</th><th>Type</th>
-    <th>RRC No</th><th>Period</th><th>District</th>
-    <th class="text-end">Total Dues OB (₹)</th>
-    <th class="text-end">Pending Amount (₹)</th>
+  let html = `<div class="table-responsive"><table class="ledger-table" id="eoRrcFilterTable" data-full-dataset-sort="true"><thead><tr>
+    <th>Sl. No.</th>
+    ${makeSortableTh('EST Code', 'est_code', _eoRrcSortKey, _eoRrcSortAsc, 'sortEoRrcBy')}
+    ${makeSortableTh('Establishment Name', 'est_name', _eoRrcSortKey, _eoRrcSortAsc, 'sortEoRrcBy')}
+    ${makeSortableTh('Type', 'type', _eoRrcSortKey, _eoRrcSortAsc, 'sortEoRrcBy')}
+    ${makeSortableTh('RRC No', 'rrc_no', _eoRrcSortKey, _eoRrcSortAsc, 'sortEoRrcBy')}
+    ${makeSortableTh('Period', 'period', _eoRrcSortKey, _eoRrcSortAsc, 'sortEoRrcBy')}
+    ${makeSortableTh('District', 'district', _eoRrcSortKey, _eoRrcSortAsc, 'sortEoRrcBy')}
+    ${makeSortableTh('Total Dues OB (₹)', 'total_dues', _eoRrcSortKey, _eoRrcSortAsc, 'sortEoRrcBy', 'text-end')}
+    ${makeSortableTh('Pending Amount (₹)', 'pending', _eoRrcSortKey, _eoRrcSortAsc, 'sortEoRrcBy', 'text-end')}
     <th class="text-center">Action</th>
   </tr></thead><tbody>`;
 
@@ -689,10 +802,10 @@ function renderEoRrcPage(page) {
 }
 
 function exportEoRrcFilterCsv() {
-  const matches = appData.master.filter(r => (cleanStr(r.enforcement_officer) || 'UNASSIGNED') === _currentEoFilterName);
-  const sorted = [...matches].sort((a, b) => cleanStr(a.est_name).localeCompare(cleanStr(b.est_name)));
-  let csv = `Enforcement Officer: ${_currentEoFilterName}\nRank,EST Code,EST Name,Type,RRC No,Period,District,Total Dues OB,Pending Amount\n`;
-  sorted.forEach((r, idx) => {
+  const labelMap = { pending: 'Pending Amount', total_dues: 'Total Dues OB', est_name: 'Establishment Name', est_code: 'EST Code', type: 'Type', rrc_no: 'RRC No', period: 'Period', district: 'District' };
+  const sortLabel = labelMap[_eoRrcSortKey] || _eoRrcSortKey;
+  let csv = `Enforcement Officer: ${_currentEoFilterName} — Sorted by ${sortLabel} (${_eoRrcSortAsc ? 'Ascending' : 'Descending'})\nRank,EST Code,EST Name,Type,RRC No,Period,District,Total Dues OB,Pending Amount\n`;
+  _eoRrcRecords.forEach((r, idx) => {
     csv += `${idx + 1},"${cleanStr(r.est_code)}","${cleanStr(r.est_name)}","${cleanStr(r.type)}","${cleanStr(r.rrc_no)}","${cleanStr(r.period) || ''}","${cleanStr(r.district)}",${r.recovery_ob || 0},${r.pending_curr_year || 0}\n`;
   });
   const safeEo = _currentEoFilterName.replace(/[^a-zA-Z0-9_]/g, '_');
@@ -700,16 +813,19 @@ function exportEoRrcFilterCsv() {
 }
 
 function exportEoRrcFilterPdf() {
-  const headers = ['Sl.No', 'EST Code', 'Establishment Name', 'Type', 'RRC No', 'Period', 'District', 'Total Dues OB (Rs.)', 'Pending Amount (Rs.)'];
+  const labelMap = { pending: 'Pending Amount', total_dues: 'Total Dues OB', recovered: 'Total Payment Received', est_name: 'Establishment Name', est_code: 'EST Code', type: 'Type', rrc_no: 'RRC No', period: 'Period', district: 'District' };
+  const sortLabel = labelMap[_eoRrcSortKey] || _eoRrcSortKey;
+  const headers = ['Sl.No', 'EST Code', 'Establishment Name', 'Type', 'RRC No', 'Period', 'District', 'Total Dues OB (Rs.)', 'Total Payment Received (Rs.)', 'Pending Amount (Rs.)'];
   const rows = _eoRrcRecords.map((r, i) => [
     i + 1, cleanStr(r.est_code), cleanStr(r.est_name), cleanStr(r.type),
     cleanStr(r.rrc_no), cleanStr(r.period) || '-', cleanStr(r.district) || 'N/A',
     fmtCur(parseFloat(r.recovery_ob) || 0).replace(/₹/g, 'Rs.'),
+    fmtCur(parseFloat(r.recovered_curr_year) || 0).replace(/₹/g, 'Rs.'),
     fmtCur(parseFloat(r.pending_curr_year) || parseFloat(r.recovery_ob) || 0).replace(/₹/g, 'Rs.')
   ]);
   generateDataPdf(
     `Pending RRC List — ${_currentEoFilterName}`,
-    `${rows.length} Recovery Certificates assigned to ${_currentEoFilterName} · Sorted alphabetically`,
+    `${rows.length} Recovery Certificates assigned to ${_currentEoFilterName} · Sorted by ${sortLabel} (${_eoRrcSortAsc ? 'Ascending' : 'Descending'})`,
     headers, rows
   );
 }
@@ -1544,6 +1660,7 @@ function buildReceiptLedgerSection(row) {
       rowTotal += amt;
     });
 
+    const safeGKey = String(gKey).replace(/'/g, "\\'");
     receiptRowsHtml += `
       <tr>
         <td>${dt}</td>
@@ -1551,7 +1668,7 @@ function buildReceiptLedgerSection(row) {
         ${accounts.map(ac => `<td class="text-end">${accSums[ac] > 0 ? fmtCur(accSums[ac]) : '-'}</td>`).join('')}
         <td class="text-end val-cleared">${fmtCur(rowTotal)}</td>
         <td class="text-center">
-          <button class="sidebar-btn btn-outline" style="width: 28px; height: 28px; padding: 0; margin: 0; display: inline-flex;" title="Delete Receipt" onclick="deleteReceiptGroup('${gKey}', ${row.id})">
+          <button class="sidebar-btn btn-outline" style="width: 28px; height: 28px; padding: 0; margin: 0; display: inline-flex;" title="Delete Receipt" onclick="deleteReceiptGroup('${safeGKey}', ${row.id})">
             <i class="fas fa-trash-alt" style="color: var(--danger);"></i>
           </button>
         </td>
@@ -1717,12 +1834,49 @@ async function onPaidEdited(rowId, ac) {
 // ------------------------------------------------------------------
 // Record Payment Receipt
 // ------------------------------------------------------------------
+function refreshEstablishmentCardView(rowId, estCode) {
+  const row = appData.master.find(r => r.id === rowId);
+  const code = estCode || (row ? cleanStr(row.est_code) : '');
+
+  // 1. Refresh inside Quick Establishment Ledger Modal if active
+  const quickModal = document.getElementById('quickEstLedgerModal');
+  if (quickModal && quickModal.classList.contains('active') && code) {
+    let targetRrcId = null;
+    let targetType = null;
+    const activeBtn = quickModal.querySelector('.search-mode-btn.active');
+    if (activeBtn && !activeBtn.textContent.includes('Show All')) {
+      targetRrcId = rowId;
+    }
+    renderQuickEstCards(code, targetRrcId, targetType);
+  }
+
+  // 2. Refresh inside Main Establishment Search Tab if selected
+  const selectBox = document.getElementById('matchedRecordsBox');
+  if (selectBox && selectBox.value) {
+    displaySpecificRow(selectBox.value);
+  }
+}
+
+// ------------------------------------------------------------------
+// Record Payment Receipt
+// ------------------------------------------------------------------
 async function saveReceiptEntry(rowId) {
   const row = appData.master.find(r => r.id === rowId);
   if (!row) return;
 
-  const dateVal = document.getElementById(`rcpt-date-${rowId}`).value;
-  const rcptNo = document.getElementById(`rcpt-no-${rowId}`).value.trim();
+  const quickModal = document.getElementById('quickEstLedgerModal');
+  const scope = (quickModal && quickModal.classList.contains('active')) ? quickModal : document;
+
+  const dateInput = scope.querySelector(`#rcpt-date-${rowId}`) || document.getElementById(`rcpt-date-${rowId}`);
+  const rcptInput = scope.querySelector(`#rcpt-no-${rowId}`) || document.getElementById(`rcpt-no-${rowId}`);
+
+  if (!dateInput) {
+    alert('Payment entry form not found.');
+    return;
+  }
+
+  const dateVal = dateInput.value;
+  const rcptNo = rcptInput ? rcptInput.value.trim() : '';
 
   if (!dateVal) {
     alert('Please enter a valid payment date.');
@@ -1734,21 +1888,24 @@ async function saveReceiptEntry(rowId) {
   let txnId = 'TXN_' + Date.now();
 
   accounts.forEach(ac => {
-    const input = document.getElementById(`rcpt-amt-${rowId}-${ac}`);
-    const amt = parseFloat(input.value) || 0;
-    if (amt > 0) {
-      newEntries.push({
-        txn_id: txnId,
-        date: dateVal,
-        receipt_no: rcptNo,
-        est_name: cleanStr(row.est_name),
-        est_code: cleanStr(row.est_code),
-        rrc_no: cleanStr(row.rrc_no),
-        type: cleanStr(row.type),
-        account: ac,
-        amount_deposited: amt,
-        period: cleanStr(row.period)
-      });
+    const input = scope.querySelector(`#rcpt-amt-${rowId}-${ac}`) || document.getElementById(`rcpt-amt-${rowId}-${ac}`);
+    if (input) {
+      const rawVal = String(input.value || '').replace(/,/g, '').trim();
+      const amt = parseFloat(rawVal) || 0;
+      if (amt > 0) {
+        newEntries.push({
+          txn_id: txnId,
+          date: dateVal,
+          receipt_no: rcptNo,
+          est_name: cleanStr(row.est_name),
+          est_code: cleanStr(row.est_code),
+          rrc_no: cleanStr(row.rrc_no),
+          type: cleanStr(row.type),
+          account: ac,
+          amount_deposited: amt,
+          period: cleanStr(row.period)
+        });
+      }
     }
   });
 
@@ -1762,6 +1919,7 @@ async function saveReceiptEntry(rowId) {
   const { data, error } = await supabaseClient.from('recovery_log').insert(newEntries).select();
   if (error) {
     showSaveStatus('⚠ Error inserting receipt: ' + error.message, 'var(--danger)');
+    alert('Error saving receipt: ' + error.message);
     return;
   }
 
@@ -1806,9 +1964,7 @@ async function saveReceiptEntry(rowId) {
 
   showSaveStatus('✓ Receipt recorded & synced successfully!', 'var(--success)');
   updateGlobalMetrics();
-
-  const selectBox = document.getElementById('matchedRecordsBox');
-  displaySpecificRow(selectBox.value);
+  refreshEstablishmentCardView(rowId, estCode);
 }
 
 async function deleteReceiptGroup(gKey, rowId) {
@@ -1816,23 +1972,74 @@ async function deleteReceiptGroup(gKey, rowId) {
 
   showSaveStatus('⏳ Deleting receipt...', 'var(--warning)');
 
-  // Filter logs to remove
-  let toDelete = appData.recoveryLog.filter(l => (l.txn_id && l.txn_id === gKey) || (`${l.date}___${l.receipt_no || ''}` === gKey));
-  appData.recoveryLog = appData.recoveryLog.filter(l => !((l.txn_id && l.txn_id === gKey) || (`${l.date}___${l.receipt_no || ''}` === gKey)));
+  const targetRow = appData.master.find(r => r.id === rowId);
+  const targetEstCode = targetRow ? cleanStr(targetRow.est_code) : '';
+  const targetType = targetRow ? cleanStr(targetRow.type) : '';
 
-  if (toDelete.length > 0) {
-    if (toDelete[0].txn_id) {
-      await supabaseClient.from('recovery_log').delete().eq('txn_id', gKey);
-    } else {
-      await supabaseClient.from('recovery_log').delete().eq('id', toDelete[0].id);
+  // 1. Identify all matching receipt log records in appData.recoveryLog
+  let toDelete = appData.recoveryLog.filter(l => {
+    if (l.txn_id && l.txn_id === gKey) return true;
+
+    const lDt = l.date ? String(l.date).slice(0, 10) : '';
+    const lRcpt = cleanStr(l.receipt_no);
+    const estC = cleanStr(l.est_code);
+    const t = cleanStr(l.type);
+
+    const matchesKey = (l.txn_id === gKey) || (`${lDt}___${lRcpt}` === gKey);
+    const matchesCert = (estC === targetEstCode) && (t === targetType);
+    return matchesKey && matchesCert;
+  });
+
+  // Fallback: If no match with cert check, try global key match
+  if (toDelete.length === 0) {
+    toDelete = appData.recoveryLog.filter(l => {
+      if (l.txn_id && l.txn_id === gKey) return true;
+      const lDt = l.date ? String(l.date).slice(0, 10) : '';
+      const lRcpt = cleanStr(l.receipt_no);
+      return `${lDt}___${lRcpt}` === gKey;
+    });
+  }
+
+  if (toDelete.length === 0) {
+    showSaveStatus('⚠ Receipt record not found in log', 'var(--danger)');
+    alert('Could not locate the receipt record to delete.');
+    return;
+  }
+
+  // 2. Remove from local memory state
+  const deleteIds = toDelete.map(l => l.id).filter(Boolean);
+  const deleteTxnIds = Array.from(new Set(toDelete.map(l => l.txn_id).filter(Boolean)));
+  const toDeleteSet = new Set(toDelete);
+
+  appData.recoveryLog = appData.recoveryLog.filter(l => !toDeleteSet.has(l) && (!l.id || !deleteIds.includes(l.id)));
+
+  // 3. Perform Supabase deletion for ALL matched rows
+  if (deleteTxnIds.length > 0) {
+    for (const tId of deleteTxnIds) {
+      await supabaseClient.from('recovery_log').delete().eq('txn_id', tId);
     }
   }
 
-  // Recalculate row totals
-  const row = appData.master.find(r => r.id === rowId);
+  if (deleteIds.length > 0) {
+    await supabaseClient.from('recovery_log').delete().in('id', deleteIds);
+  }
+
+  // Fallback deletion for legacy rows matching est_code, type, receipt_no, date
+  if (deleteTxnIds.length === 0 && deleteIds.length === 0) {
+    const sample = toDelete[0];
+    const sDt = sample.date ? String(sample.date).slice(0, 10) : '';
+    await supabaseClient.from('recovery_log').delete()
+      .eq('est_code', cleanStr(sample.est_code))
+      .eq('type', cleanStr(sample.type))
+      .eq('receipt_no', cleanStr(sample.receipt_no));
+  }
+
+  // 4. Recalculate certificate totals
+  let estCode = targetEstCode;
+  const row = targetRow || appData.master.find(r => r.id === rowId);
   if (row) {
+    if (!estCode) estCode = cleanStr(row.est_code);
     const accounts = ['1', '2', '10', '21', '22'];
-    const estCode = cleanStr(row.est_code);
     const type = cleanStr(row.type);
 
     for (const ac of accounts) {
@@ -1854,6 +2061,7 @@ async function deleteReceiptGroup(gKey, rowId) {
     row.recovery_ob = totalOb;
     row.recovered_curr_year = totalPaid;
     row.pending_curr_year = totalPending;
+    if (totalPending > 0) row.fully_recovered = '';
 
     await supabaseClient.from('rrc_master').update({
       acc_1_paid: row.acc_1_paid, acc_1_pending: row.acc_1_pending,
@@ -1861,14 +2069,14 @@ async function deleteReceiptGroup(gKey, rowId) {
       acc_10_paid: row.acc_10_paid, acc_10_pending: row.acc_10_pending,
       acc_21_paid: row.acc_21_paid, acc_21_pending: row.acc_21_pending,
       acc_22_paid: row.acc_22_paid, acc_22_pending: row.acc_22_pending,
-      recovery_ob: totalOb, recovered_curr_year: totalPaid, pending_curr_year: totalPending
+      recovery_ob: totalOb, recovered_curr_year: totalPaid, pending_curr_year: totalPending,
+      fully_recovered: row.fully_recovered
     }).eq('id', rowId);
   }
 
   showSaveStatus('✓ Receipt deleted & totals updated', 'var(--success)');
   updateGlobalMetrics();
-  const selectBox = document.getElementById('matchedRecordsBox');
-  displaySpecificRow(selectBox.value);
+  refreshEstablishmentCardView(rowId, estCode);
 }
 
 // ------------------------------------------------------------------
@@ -2468,14 +2676,17 @@ function generateDataPdf(reportTitle, reportSubhead, headers, bodyRows, orientat
 // Individual PDF Exporters for Reports
 // Paginated modals use generateDataPdf with full data arrays; non-paginated use generateReportPdf from DOM
 function exportDefaultersPdf() {
-  const headers = ['Sl.No', 'EST Code', 'Establishment Name', 'Type', 'RRC No', 'Period', 'District', 'Total Dues OB (Rs.)', 'Pending Amount (Rs.)'];
+  const labelMap = { pending: 'Pending Amount', total_dues: 'Total Dues OB', recovered: 'Total Payment Received', est_name: 'Establishment Name', est_code: 'EST Code', type: 'Type', rrc_no: 'RRC No', period: 'Period', district: 'District' };
+  const sortLabel = labelMap[_defaultersSortKey] || _defaultersSortKey;
+  const headers = ['Sl.No', 'EST Code', 'Establishment Name', 'Type', 'RRC No', 'Period', 'District', 'Total Dues OB (Rs.)', 'Total Payment Received (Rs.)', 'Pending Amount (Rs.)'];
   const rows = _defaultersRecords.map((r, i) => [
     i + 1, cleanStr(r.est_code), cleanStr(r.est_name), cleanStr(r.type),
     cleanStr(r.rrc_no), cleanStr(r.period) || '-', cleanStr(r.district) || 'N/A',
     fmtCur(parseFloat(r.recovery_ob) || 0).replace(/₹/g, 'Rs.'),
+    fmtCur(parseFloat(r.recovered_curr_year) || 0).replace(/₹/g, 'Rs.'),
     fmtCur(parseFloat(r.pending_curr_year) || parseFloat(r.recovery_ob) || 0).replace(/₹/g, 'Rs.')
   ]);
-  generateDataPdf('Top Defaulters Watchlist Report', `${rows.length} Establishments Ranked Alphabetically by Name`, headers, rows);
+  generateDataPdf('Top Defaulters Watchlist Report', `${rows.length} Establishments — Sorted by ${sortLabel} (${_defaultersSortAsc ? 'Ascending' : 'Descending'})`, headers, rows);
 }
 function exportDistrictPdf() { generateReportPdf('District & Geographical Recovery Analytics Report', 'Recovery Performance and Dues Distribution across Districts & Offices', 'districtModalBody', 'landscape'); }
 function exportRoPdf() { generateReportPdf('Recovery Officers (RO) Performance Matrix', 'Assigned RRCs, Total Dues OB and Recoveries per Recovery Officer', 'roModalBody', 'landscape'); }
@@ -2510,8 +2721,19 @@ function getCertificateLegalWeight(typeStr) {
   return 50;
 }
 
+function makeSortableTh(title, key, currentKey, isAsc, fnName, alignClass = '') {
+  const isActive = currentKey === key;
+  const arrow = isActive ? (isAsc ? ' ▲' : ' ▼') : ' ↕';
+  const opacity = isActive ? '1' : '0.4';
+  const color = isActive ? 'color: var(--accent);' : '';
+  const align = alignClass ? `class="${alignClass}"` : '';
+  return `<th ${align} style="cursor: pointer; user-select: none; ${color}" onclick="${fnName}('${key}')" title="Click to sort all records by ${title}">
+    ${title} <span class="sort-indicator" style="font-size: 10px; margin-left: 3px; opacity: ${opacity};">${arrow}</span>
+  </th>`;
+}
+
 function makeTableSortable(tableEl) {
-  if (!tableEl || tableEl.dataset.sortableAttached === 'true') return;
+  if (!tableEl || tableEl.dataset.sortableAttached === 'true' || tableEl.dataset.fullDatasetSort === 'true') return;
   tableEl.dataset.sortableAttached = 'true';
 
   const headers = tableEl.querySelectorAll('thead th');
@@ -2804,9 +3026,73 @@ function renderCardDefaulters() {
 }
 
 let _defaultersRecords = [];
+let _defaultersSortKey = 'pending';
+let _defaultersSortAsc = false;
+
+function _sortDefaultersDataset() {
+  _defaultersRecords.sort((a, b) => {
+    let valA, valB;
+    if (_defaultersSortKey === 'pending') {
+      valA = parseFloat(a.pending_curr_year) || parseFloat(a.recovery_ob) || 0;
+      valB = parseFloat(b.pending_curr_year) || parseFloat(b.recovery_ob) || 0;
+    } else if (_defaultersSortKey === 'total_dues') {
+      valA = parseFloat(a.recovery_ob) || 0;
+      valB = parseFloat(b.recovery_ob) || 0;
+    } else if (_defaultersSortKey === 'est_name') {
+      valA = cleanStr(a.est_name);
+      valB = cleanStr(b.est_name);
+    } else if (_defaultersSortKey === 'est_code') {
+      valA = cleanStr(a.est_code);
+      valB = cleanStr(b.est_code);
+    } else if (_defaultersSortKey === 'type') {
+      valA = cleanStr(a.type);
+      valB = cleanStr(b.type);
+    } else if (_defaultersSortKey === 'rrc_no') {
+      valA = cleanStr(a.rrc_no);
+      valB = cleanStr(b.rrc_no);
+    } else if (_defaultersSortKey === 'period') {
+      valA = cleanStr(a.period);
+      valB = cleanStr(b.period);
+    } else if (_defaultersSortKey === 'district') {
+      valA = cleanStr(a.district);
+      valB = cleanStr(b.district);
+    } else {
+      valA = cleanStr(a.est_name);
+      valB = cleanStr(b.est_name);
+    }
+
+    let comp = 0;
+    if (typeof valA === 'number' && typeof valB === 'number') {
+      comp = valA - valB;
+    } else {
+      comp = String(valA).localeCompare(String(valB), undefined, { numeric: true, sensitivity: 'base' });
+    }
+
+    if (comp !== 0) {
+      return _defaultersSortAsc ? comp : -comp;
+    }
+    const nameComp = cleanStr(a.est_name).localeCompare(cleanStr(b.est_name));
+    if (nameComp !== 0) return nameComp;
+    return getCertificateLegalWeight(a.type) - getCertificateLegalWeight(b.type);
+  });
+}
+
+function sortDefaultersBy(key) {
+  if (_defaultersSortKey === key) {
+    _defaultersSortAsc = !_defaultersSortAsc;
+  } else {
+    _defaultersSortKey = key;
+    _defaultersSortAsc = (key === 'pending' || key === 'total_dues') ? false : true;
+  }
+  _sortDefaultersDataset();
+  renderDefaultersPage(1);
+}
 
 function showDefaultersModal() {
-  _defaultersRecords = [...appData.master].sort((a, b) => cleanStr(a.est_name).localeCompare(cleanStr(b.est_name)));
+  _defaultersRecords = [...appData.master];
+  _defaultersSortKey = 'pending';
+  _defaultersSortAsc = false;
+  _sortDefaultersDataset();
   renderDefaultersPage(1);
   openModal('defaultersModal');
 }
@@ -2817,11 +3103,16 @@ function renderDefaultersPage(page) {
   const start = (page - 1) * RRC_PAGE_SIZE;
   const pageRecs = records.slice(start, start + RRC_PAGE_SIZE);
 
-  let html = `<div class="table-responsive"><table class="ledger-table"><thead><tr>
-    <th>Sl. No.</th><th>EST Code</th><th>Establishment Name</th><th>Type</th>
-    <th>RRC No</th><th>Period</th><th>District</th>
-    <th class="text-end">Total Dues OB (₹)</th>
-    <th class="text-end">Pending Amount (₹)</th>
+  let html = `<div class="table-responsive"><table class="ledger-table" id="defaultersTable" data-full-dataset-sort="true"><thead><tr>
+    <th>Sl. No.</th>
+    ${makeSortableTh('EST Code', 'est_code', _defaultersSortKey, _defaultersSortAsc, 'sortDefaultersBy')}
+    ${makeSortableTh('Establishment Name', 'est_name', _defaultersSortKey, _defaultersSortAsc, 'sortDefaultersBy')}
+    ${makeSortableTh('Type', 'type', _defaultersSortKey, _defaultersSortAsc, 'sortDefaultersBy')}
+    ${makeSortableTh('RRC No', 'rrc_no', _defaultersSortKey, _defaultersSortAsc, 'sortDefaultersBy')}
+    ${makeSortableTh('Period', 'period', _defaultersSortKey, _defaultersSortAsc, 'sortDefaultersBy')}
+    ${makeSortableTh('District', 'district', _defaultersSortKey, _defaultersSortAsc, 'sortDefaultersBy')}
+    ${makeSortableTh('Total Dues OB (₹)', 'total_dues', _defaultersSortKey, _defaultersSortAsc, 'sortDefaultersBy', 'text-end')}
+    ${makeSortableTh('Pending Amount (₹)', 'pending', _defaultersSortKey, _defaultersSortAsc, 'sortDefaultersBy', 'text-end')}
     <th class="text-center">Action</th>
   </tr></thead><tbody>`;
 
@@ -2857,9 +3148,11 @@ function renderDefaultersPage(page) {
 }
 
 function exportDefaultersCsv() {
-  const sorted = [...appData.master].sort((a, b) => cleanStr(a.est_name).localeCompare(cleanStr(b.est_name)));
-  let csv = 'Rank,EST Code,EST Name,Type,RRC No,Period,District,Total Dues OB,Pending Amount\n';
-  sorted.forEach((r, idx) => {
+  const labelMap = { pending: 'Pending Amount', total_dues: 'Total Dues OB', est_name: 'Establishment Name', est_code: 'EST Code', type: 'Type', rrc_no: 'RRC No', period: 'Period', district: 'District' };
+  const sortLabel = labelMap[_defaultersSortKey] || _defaultersSortKey;
+  let csv = `Top Defaulters Watchlist — Sorted by ${sortLabel} (${_defaultersSortAsc ? 'Ascending' : 'Descending'})\n`;
+  csv += 'Rank,EST Code,EST Name,Type,RRC No,Period,District,Total Dues OB,Pending Amount\n';
+  _defaultersRecords.forEach((r, idx) => {
     csv += `${idx + 1},"${cleanStr(r.est_code)}","${cleanStr(r.est_name)}","${cleanStr(r.type)}","${cleanStr(r.rrc_no)}","${cleanStr(r.period) || ''}","${cleanStr(r.district)}",${r.recovery_ob || 0},${r.pending_curr_year || 0}\n`;
   });
   downloadCsvFile(csv, 'Top_Defaulters_Watchlist.csv');
@@ -3172,24 +3465,92 @@ function showAgeingModal() {
 
 // Module-level variable for ageing year drill-down exports
 let _currentAgeingYear = '';
-
 let _ageingDrilldownRecords = [];
+let _ageingDrilldownSortKey = 'pending';
+let _ageingDrilldownSortAsc = false;
+
+function _sortAgeingDrilldownDataset() {
+  _ageingDrilldownRecords.sort((a, b) => {
+    let valA, valB;
+    if (_ageingDrilldownSortKey === 'pending') {
+      valA = parseFloat(a.pending_curr_year) || parseFloat(a.recovery_ob) || 0;
+      valB = parseFloat(b.pending_curr_year) || parseFloat(b.recovery_ob) || 0;
+    } else if (_ageingDrilldownSortKey === 'recovered') {
+      valA = parseFloat(a.recovered_curr_year) || 0;
+      valB = parseFloat(b.recovered_curr_year) || 0;
+    } else if (_ageingDrilldownSortKey === 'total_dues') {
+      valA = parseFloat(a.recovery_ob) || 0;
+      valB = parseFloat(b.recovery_ob) || 0;
+    } else if (_ageingDrilldownSortKey === 'est_name') {
+      valA = cleanStr(a.est_name);
+      valB = cleanStr(b.est_name);
+    } else if (_ageingDrilldownSortKey === 'est_code') {
+      valA = cleanStr(a.est_code);
+      valB = cleanStr(b.est_code);
+    } else if (_ageingDrilldownSortKey === 'type') {
+      valA = cleanStr(a.type);
+      valB = cleanStr(b.type);
+    } else if (_ageingDrilldownSortKey === 'rrc_no') {
+      valA = cleanStr(a.rrc_no);
+      valB = cleanStr(b.rrc_no);
+    } else if (_ageingDrilldownSortKey === 'period') {
+      valA = cleanStr(a.period);
+      valB = cleanStr(b.period);
+    } else if (_ageingDrilldownSortKey === 'district') {
+      valA = cleanStr(a.district);
+      valB = cleanStr(b.district);
+    } else if (_ageingDrilldownSortKey === 'eo') {
+      valA = cleanStr(a.enforcement_officer);
+      valB = cleanStr(b.enforcement_officer);
+    } else {
+      valA = cleanStr(a.est_name);
+      valB = cleanStr(b.est_name);
+    }
+
+    let comp = 0;
+    if (typeof valA === 'number' && typeof valB === 'number') {
+      comp = valA - valB;
+    } else {
+      comp = String(valA).localeCompare(String(valB), undefined, { numeric: true, sensitivity: 'base' });
+    }
+
+    if (comp !== 0) {
+      return _ageingDrilldownSortAsc ? comp : -comp;
+    }
+    const nameComp = cleanStr(a.est_name).localeCompare(cleanStr(b.est_name));
+    if (nameComp !== 0) return nameComp;
+    return getCertificateLegalWeight(a.type) - getCertificateLegalWeight(b.type);
+  });
+}
+
+function sortAgeingDrilldownBy(key) {
+  if (_ageingDrilldownSortKey === key) {
+    _ageingDrilldownSortAsc = !_ageingDrilldownSortAsc;
+  } else {
+    _ageingDrilldownSortKey = key;
+    _ageingDrilldownSortAsc = (key === 'pending' || key === 'total_dues' || key === 'recovered') ? false : true;
+  }
+  _sortAgeingDrilldownDataset();
+  renderAgeingDrilldownPage(1);
+}
 
 function showAgeingYearDrilldown(year) {
   _currentAgeingYear = year;
-
   _ageingDrilldownRecords = appData.master
-    .filter(r => (cleanStr(r.issued_year) || 'Unknown') === year)
-    .sort((a, b) => cleanStr(a.est_name).localeCompare(cleanStr(b.est_name)));
+    .filter(r => (cleanStr(r.issued_year) || 'Unknown') === year);
 
   if (_ageingDrilldownRecords.length === 0) return alert('No certificates found for year ' + year);
+
+  _ageingDrilldownSortKey = 'pending';
+  _ageingDrilldownSortAsc = false;
+  _sortAgeingDrilldownDataset();
 
   const currYear = new Date().getFullYear();
   const age = year !== 'Unknown' ? (currYear - parseInt(year, 10)) : '?';
   const titleEl = document.getElementById('ageingDrilldownTitle');
   const subEl = document.getElementById('ageingDrilldownSubtitle');
   if (titleEl) titleEl.innerHTML = `<i class="fas fa-hourglass-half me-2" style="color:var(--warning);"></i> RRC Certificates — Issued Year ${year}`;
-  if (subEl) subEl.textContent = `${_ageingDrilldownRecords.length} certificate${_ageingDrilldownRecords.length !== 1 ? 's' : ''} issued in ${year} (${age} year${age !== 1 ? 's' : ''} old) · sorted alphabetically by establishment name`;
+  if (subEl) subEl.textContent = `${_ageingDrilldownRecords.length} certificate${_ageingDrilldownRecords.length !== 1 ? 's' : ''} issued in ${year} (${age} year${age !== 1 ? 's' : ''} old) · sorted by pending amount`;
 
   renderAgeingDrilldownPage(1);
   openModal('ageingDrilldownModal');
@@ -3201,12 +3562,18 @@ function renderAgeingDrilldownPage(page) {
   const start = (page - 1) * RRC_PAGE_SIZE;
   const pageRecs = records.slice(start, start + RRC_PAGE_SIZE);
 
-  let html = `<div class="table-responsive"><table class="ledger-table" id="ageingDrilldownTable"><thead><tr>
-    <th>Sl. No.</th><th>EST Code</th><th>Establishment Name</th><th>Type</th>
-    <th>RRC No</th><th>Period</th><th>District</th><th>Enforcement Officer</th>
-    <th class="text-end">Total Dues OB (₹)</th>
-    <th class="text-end">Recovered (₹)</th>
-    <th class="text-end">Pending Amount (₹)</th>
+  let html = `<div class="table-responsive"><table class="ledger-table" id="ageingDrilldownTable" data-full-dataset-sort="true"><thead><tr>
+    <th>Sl. No.</th>
+    ${makeSortableTh('EST Code', 'est_code', _ageingDrilldownSortKey, _ageingDrilldownSortAsc, 'sortAgeingDrilldownBy')}
+    ${makeSortableTh('Establishment Name', 'est_name', _ageingDrilldownSortKey, _ageingDrilldownSortAsc, 'sortAgeingDrilldownBy')}
+    ${makeSortableTh('Type', 'type', _ageingDrilldownSortKey, _ageingDrilldownSortAsc, 'sortAgeingDrilldownBy')}
+    ${makeSortableTh('RRC No', 'rrc_no', _ageingDrilldownSortKey, _ageingDrilldownSortAsc, 'sortAgeingDrilldownBy')}
+    ${makeSortableTh('Period', 'period', _ageingDrilldownSortKey, _ageingDrilldownSortAsc, 'sortAgeingDrilldownBy')}
+    ${makeSortableTh('District', 'district', _ageingDrilldownSortKey, _ageingDrilldownSortAsc, 'sortAgeingDrilldownBy')}
+    ${makeSortableTh('Enforcement Officer', 'eo', _ageingDrilldownSortKey, _ageingDrilldownSortAsc, 'sortAgeingDrilldownBy')}
+    ${makeSortableTh('Total Dues OB (₹)', 'total_dues', _ageingDrilldownSortKey, _ageingDrilldownSortAsc, 'sortAgeingDrilldownBy', 'text-end')}
+    ${makeSortableTh('Recovered (₹)', 'recovered', _ageingDrilldownSortKey, _ageingDrilldownSortAsc, 'sortAgeingDrilldownBy', 'text-end')}
+    ${makeSortableTh('Pending Amount (₹)', 'pending', _ageingDrilldownSortKey, _ageingDrilldownSortAsc, 'sortAgeingDrilldownBy', 'text-end')}
     <th class="text-center">Action</th>
   </tr></thead><tbody>`;
 
@@ -3246,18 +3613,19 @@ function renderAgeingDrilldownPage(page) {
 }
 
 function exportAgeingYearCsv() {
-  const matches = appData.master
-    .filter(r => (cleanStr(r.issued_year) || 'Unknown') === _currentAgeingYear)
-    .sort((a, b) => cleanStr(a.est_name).localeCompare(cleanStr(b.est_name)));
-  let csv = `Issued Year: ${_currentAgeingYear}\nRank,EST Code,EST Name,Type,RRC No,Period,District,Enforcement Officer,Total Dues OB,Recovered,Pending Amount\n`;
-  matches.forEach((r, idx) => {
+  const labelMap = { pending: 'Pending Amount', total_dues: 'Total Dues OB', recovered: 'Recovered', est_name: 'Establishment Name', est_code: 'EST Code', type: 'Type', rrc_no: 'RRC No', period: 'Period', district: 'District', eo: 'Enforcement Officer' };
+  const sortLabel = labelMap[_ageingDrilldownSortKey] || _ageingDrilldownSortKey;
+  let csv = `Issued Year: ${_currentAgeingYear} — Sorted by ${sortLabel} (${_ageingDrilldownSortAsc ? 'Ascending' : 'Descending'})\nRank,EST Code,EST Name,Type,RRC No,Period,District,Enforcement Officer,Total Dues OB,Recovered,Pending Amount\n`;
+  _ageingDrilldownRecords.forEach((r, idx) => {
     csv += `${idx + 1},"${cleanStr(r.est_code)}","${cleanStr(r.est_name)}","${cleanStr(r.type)}","${cleanStr(r.rrc_no)}","${cleanStr(r.period) || ''}","${cleanStr(r.district)}","${cleanStr(r.enforcement_officer) || 'Unassigned'}",${r.recovery_ob || 0},${r.recovered_curr_year || 0},${r.pending_curr_year || 0}\n`;
   });
   downloadCsvFile(csv, `RRC_Year_${_currentAgeingYear}.csv`);
 }
 
 function exportAgeingYearPdf() {
-  const headers = ['Sl.No', 'EST Code', 'Establishment Name', 'Type', 'RRC No', 'Period', 'District', 'Enforcement Officer', 'Total Dues OB (Rs.)', 'Recovered (Rs.)', 'Pending Amount (Rs.)'];
+  const labelMap = { pending: 'Pending Amount', total_dues: 'Total Dues OB', recovered: 'Total Payment Received', est_name: 'Establishment Name', est_code: 'EST Code', type: 'Type', rrc_no: 'RRC No', period: 'Period', district: 'District', eo: 'Enforcement Officer' };
+  const sortLabel = labelMap[_ageingDrilldownSortKey] || _ageingDrilldownSortKey;
+  const headers = ['Sl.No', 'EST Code', 'Establishment Name', 'Type', 'RRC No', 'Period', 'District', 'Enforcement Officer', 'Total Dues OB (Rs.)', 'Total Payment Received (Rs.)', 'Pending Amount (Rs.)'];
   const rows = _ageingDrilldownRecords.map((r, i) => [
     i + 1, cleanStr(r.est_code), cleanStr(r.est_name), cleanStr(r.type),
     cleanStr(r.rrc_no), cleanStr(r.period) || '-', cleanStr(r.district) || 'N/A',
@@ -3268,7 +3636,7 @@ function exportAgeingYearPdf() {
   ]);
   generateDataPdf(
     `RRC Certificates — Issued Year ${_currentAgeingYear}`,
-    `${rows.length} Recovery Certificates issued in ${_currentAgeingYear} · Sorted alphabetically by Establishment Name`,
+    `${rows.length} Recovery Certificates issued in ${_currentAgeingYear} · Sorted by ${sortLabel} (${_ageingDrilldownSortAsc ? 'Ascending' : 'Descending'})`,
     headers, rows
   );
 }
@@ -3322,9 +3690,10 @@ function showActionModal() {
   let actionMap = {};
   appData.master.forEach(r => {
     const act = cleanStr(r.action_taken) || 'Notice / Under Recovery Process';
-    if (!actionMap[act]) actionMap[act] = { count: 0, ob: 0, pending: 0 };
+    if (!actionMap[act]) actionMap[act] = { count: 0, ob: 0, paid: 0, pending: 0 };
     actionMap[act].count++;
     actionMap[act].ob += parseFloat(r.recovery_ob) || 0;
+    actionMap[act].paid += parseFloat(r.recovered_curr_year) || 0;
     actionMap[act].pending += parseFloat(r.pending_curr_year) || 0;
   });
 
@@ -3336,6 +3705,7 @@ function showActionModal() {
             <th>Action Taken / Legal Stage</th>
             <th class="text-center">Certificate Count</th>
             <th class="text-end">Total Dues OB (₹)</th>
+            <th class="text-end">Total Payment Received (₹)</th>
             <th class="text-end">Pending Amount (₹)</th>
           </tr>
         </thead>
@@ -3349,6 +3719,7 @@ function showActionModal() {
         <td><strong>${act}</strong></td>
         <td class="text-center">${m.count}</td>
         <td class="text-end">${fmtCur(m.ob)}</td>
+        <td class="text-end val-cleared">${fmtCur(m.paid)}</td>
         <td class="text-end val-pending">${fmtCur(m.pending)}</td>
       </tr>
     `;
@@ -3363,16 +3734,17 @@ function exportActionCsv() {
   let actionMap = {};
   appData.master.forEach(r => {
     const act = cleanStr(r.action_taken) || 'Notice / Under Recovery Process';
-    if (!actionMap[act]) actionMap[act] = { count: 0, ob: 0, pending: 0 };
+    if (!actionMap[act]) actionMap[act] = { count: 0, ob: 0, paid: 0, pending: 0 };
     actionMap[act].count++;
     actionMap[act].ob += parseFloat(r.recovery_ob) || 0;
+    actionMap[act].paid += parseFloat(r.recovered_curr_year) || 0;
     actionMap[act].pending += parseFloat(r.pending_curr_year) || 0;
   });
 
-  let csv = 'Action Taken,Certificate Count,Total Dues OB,Pending Amount\n';
+  let csv = 'Action Taken,Certificate Count,Total Dues OB,Total Payment Received,Pending Amount\n';
   Object.keys(actionMap).forEach(act => {
     const m = actionMap[act];
-    csv += `"${act}",${m.count},${m.ob},${m.pending}\n`;
+    csv += `"${act}",${m.count},${m.ob},${m.paid},${m.pending}\n`;
   });
   downloadCsvFile(csv, 'Legal_Action_Taken_Report.csv');
 }
