@@ -33,9 +33,19 @@ function cleanStr(val) {
   return s === 'nan' ? '' : s;
 }
 
-const APP_VERSION = 'v3.2.6';
+const APP_VERSION = 'v3.2.7';
 
 const APP_RELEASE_LOG = [
+  {
+    version: 'v3.2.7',
+    date: '2026-07-30',
+    title: 'Smart Chronological RRC Year & Sequence Number Sorting Engine',
+    changes: [
+      'Built parseSortableRrc and compareRrcNumbers sorting engine to parse 4-digit certificate year and sequence number.',
+      'Clicking RRC No sorting now sorts chronologically: 1st click shows Latest Year (2026) on top down to Oldest (2024), 2nd click toggles to Oldest on top.',
+      'Applied smart RRC sorting across all modules: EO Filter RRCs, Defaulters Watchlist, Ageing Drilldown, and Month Details Receipts.'
+    ]
+  },
   {
     version: 'v3.2.6',
     date: '2026-07-30',
@@ -1243,6 +1253,40 @@ function parseSortableDate(dStr) {
   return isNaN(t) ? 0 : t;
 }
 
+function parseSortableRrc(rrcStr) {
+  if (!rrcStr) return { year: 0, seq: 0, raw: '' };
+  const s = String(rrcStr).trim();
+  
+  const yearMatch = s.match(/(?:19|20)\d{2}/);
+  const year = yearMatch ? parseInt(yearMatch[0], 10) : 0;
+
+  const withoutYear = yearMatch ? s.replace(yearMatch[0], '') : s;
+  const digitsMatch = withoutYear.match(/\d+/g);
+  let seq = 0;
+  if (digitsMatch && digitsMatch.length > 0) {
+    seq = parseInt(digitsMatch[digitsMatch.length - 1], 10);
+  }
+
+  return { year, seq, raw: s.toLowerCase() };
+}
+
+function compareRrcNumbers(rrcA, rrcB, isAsc = false) {
+  const pA = parseSortableRrc(rrcA);
+  const pB = parseSortableRrc(rrcB);
+
+  const mult = isAsc ? 1 : -1;
+
+  if (pA.year !== pB.year) {
+    return (pA.year - pB.year) * mult;
+  }
+
+  if (pA.seq !== pB.seq) {
+    return (pA.seq - pB.seq) * mult;
+  }
+
+  return pA.raw.localeCompare(pB.raw) * mult;
+}
+
 let _currentEoMonthDetails = {
   eoName: '',
   targetYm: '',
@@ -1515,7 +1559,7 @@ function renderEoMonthDetailsTable() {
       const rB = typeRank[b.type] || 99;
       return (rA - rB) * mult;
     } else if (col === 'receiptNo') {
-      return a.receiptNo.localeCompare(b.receiptNo) * mult;
+      return compareRrcNumbers(a.receiptNo, b.receiptNo, dir === 'asc');
     } else if (col === 'totalDues') {
       return (a.totalDues - b.totalDues) * mult;
     } else if (col === 'openingPending') {
@@ -2207,6 +2251,12 @@ let _eoRrcSortAsc = false;
 
 function _sortEoRrcDataset() {
   _eoRrcRecords.sort((a, b) => {
+    if (_eoRrcSortKey === 'rrc_no') {
+      const comp = compareRrcNumbers(cleanStr(a.rrc_no), cleanStr(b.rrc_no), _eoRrcSortAsc);
+      if (comp !== 0) return comp;
+      return cleanStr(a.est_name).localeCompare(cleanStr(b.est_name));
+    }
+
     let valA, valB;
     if (_eoRrcSortKey === 'pending') {
       valA = parseFloat(a.pending_curr_year) || parseFloat(a.recovery_ob) || 0;
@@ -2226,9 +2276,6 @@ function _sortEoRrcDataset() {
     } else if (_eoRrcSortKey === 'type') {
       valA = cleanStr(a.type);
       valB = cleanStr(b.type);
-    } else if (_eoRrcSortKey === 'rrc_no') {
-      valA = cleanStr(a.rrc_no);
-      valB = cleanStr(b.rrc_no);
     } else if (_eoRrcSortKey === 'period') {
       valA = cleanStr(a.period);
       valB = cleanStr(b.period);
@@ -2261,7 +2308,7 @@ function sortEoRrcBy(key) {
     _eoRrcSortAsc = !_eoRrcSortAsc;
   } else {
     _eoRrcSortKey = key;
-    _eoRrcSortAsc = (key === 'pending' || key === 'total_dues' || key === 'recovered') ? false : true;
+    _eoRrcSortAsc = (key === 'pending' || key === 'total_dues' || key === 'recovered' || key === 'rrc_no') ? false : true;
   }
   _sortEoRrcDataset();
   renderEoRrcPage(1);
@@ -4773,6 +4820,12 @@ let _defaultersSortAsc = false;
 
 function _sortDefaultersDataset() {
   _defaultersRecords.sort((a, b) => {
+    if (_defaultersSortKey === 'rrc_no') {
+      const comp = compareRrcNumbers(cleanStr(a.rrc_no), cleanStr(b.rrc_no), _defaultersSortAsc);
+      if (comp !== 0) return comp;
+      return cleanStr(a.est_name).localeCompare(cleanStr(b.est_name));
+    }
+
     let valA, valB;
     if (_defaultersSortKey === 'pending') {
       valA = parseFloat(a.pending_curr_year) || parseFloat(a.recovery_ob) || 0;
@@ -4792,9 +4845,6 @@ function _sortDefaultersDataset() {
     } else if (_defaultersSortKey === 'type') {
       valA = cleanStr(a.type);
       valB = cleanStr(b.type);
-    } else if (_defaultersSortKey === 'rrc_no') {
-      valA = cleanStr(a.rrc_no);
-      valB = cleanStr(b.rrc_no);
     } else if (_defaultersSortKey === 'period') {
       valA = cleanStr(a.period);
       valB = cleanStr(b.period);
@@ -4827,7 +4877,7 @@ function sortDefaultersBy(key) {
     _defaultersSortAsc = !_defaultersSortAsc;
   } else {
     _defaultersSortKey = key;
-    _defaultersSortAsc = (key === 'pending' || key === 'total_dues' || key === 'recovered') ? false : true;
+    _defaultersSortAsc = (key === 'pending' || key === 'total_dues' || key === 'recovered' || key === 'rrc_no') ? false : true;
   }
   _sortDefaultersDataset();
   renderDefaultersPage(1);
@@ -5219,6 +5269,12 @@ let _ageingDrilldownSortAsc = false;
 
 function _sortAgeingDrilldownDataset() {
   _ageingDrilldownRecords.sort((a, b) => {
+    if (_ageingDrilldownSortKey === 'rrc_no') {
+      const comp = compareRrcNumbers(cleanStr(a.rrc_no), cleanStr(b.rrc_no), _ageingDrilldownSortAsc);
+      if (comp !== 0) return comp;
+      return cleanStr(a.est_name).localeCompare(cleanStr(b.est_name));
+    }
+
     let valA, valB;
     if (_ageingDrilldownSortKey === 'pending') {
       valA = parseFloat(a.pending_curr_year) || parseFloat(a.recovery_ob) || 0;
@@ -5238,9 +5294,6 @@ function _sortAgeingDrilldownDataset() {
     } else if (_ageingDrilldownSortKey === 'type') {
       valA = cleanStr(a.type);
       valB = cleanStr(b.type);
-    } else if (_ageingDrilldownSortKey === 'rrc_no') {
-      valA = cleanStr(a.rrc_no);
-      valB = cleanStr(b.rrc_no);
     } else if (_ageingDrilldownSortKey === 'period') {
       valA = cleanStr(a.period);
       valB = cleanStr(b.period);
@@ -5276,7 +5329,7 @@ function sortAgeingDrilldownBy(key) {
     _ageingDrilldownSortAsc = !_ageingDrilldownSortAsc;
   } else {
     _ageingDrilldownSortKey = key;
-    _ageingDrilldownSortAsc = (key === 'pending' || key === 'total_dues' || key === 'recovered') ? false : true;
+    _ageingDrilldownSortAsc = (key === 'pending' || key === 'total_dues' || key === 'recovered' || key === 'rrc_no') ? false : true;
   }
   _sortAgeingDrilldownDataset();
   renderAgeingDrilldownPage(1);
