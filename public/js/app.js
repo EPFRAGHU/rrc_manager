@@ -33,9 +33,19 @@ function cleanStr(val) {
   return s === 'nan' ? '' : s;
 }
 
-const APP_VERSION = 'v3.1.0';
+const APP_VERSION = 'v3.1.1';
 
 const APP_RELEASE_LOG = [
+  {
+    version: 'v3.1.1',
+    date: '2026-07-30',
+    title: 'Interactive Monthly Grand Total & EO Full-Year Recovery Matrix Click Drill-Downs',
+    changes: [
+      'Made all Monthly Grand Total footer cells interactive click targets to view date-wise recoveries across ALL Enforcement Officers for that month.',
+      'Made all Enforcement Officer row total cells interactive click targets to view month-wise/date-wise recoveries for that EO across the full year.',
+      'Made bottom-right overall grand total cell interactive click target to view complete date-wise recoveries across ALL EOs for the entire financial year.'
+    ]
+  },
   {
     version: 'v3.1.0',
     date: '2026-07-30',
@@ -1064,6 +1074,8 @@ function renderEoMonthlyMatrixCard() {
   });
 
   // Footer Totals Row
+  const overallFyLabel = selectedFy === 'ALL' ? 'All Financial Years' : `FY ${selectedFy}`;
+
   html += `
         <tr class="total-row" style="font-weight: 700; background: var(--bg-card-alt); font-size: 12px; position: sticky; bottom: 0; z-index: 5; border-top: 2px solid var(--border-color);">
           <td colspan="2" class="text-start"><i class="fas fa-calculator me-1" style="color: var(--success);"></i> MONTHLY GRAND TOTAL</td>
@@ -1071,11 +1083,27 @@ function renderEoMonthlyMatrixCard() {
 
   for (let mi = 0; mi < 12; mi++) {
     const mTot = monthTotals[mi];
-    html += `<td class="text-end val-cleared" style="font-weight: 800;">${mTot > 0 ? fmtCur(mTot) : '<span style="color:var(--text-secondary); opacity:0.35;">-</span>'}</td>`;
+    const mName = monthsHeader[mi];
+    const targetYear = mi < 9 ? startY : endY;
+    const monthNum = mi < 9 ? mi + 4 : mi - 8;
+    const targetYm = `${targetYear}-${String(monthNum).padStart(2, '0')}`;
+    const mLabel = `${mName} ${targetYear}`;
+
+    if (mTot > 0) {
+      html += `
+        <td class="text-end val-cleared" style="font-weight: 800; cursor: pointer; background: rgba(0, 200, 150, 0.12);" onclick="event.stopPropagation(); showEoMonthDetailsModal('ALL', '${targetYm}', '${mLabel}')" title="Click to view total date-wise recoveries across ALL Enforcement Officers in ${mLabel}">
+          <span style="border-bottom: 1px dashed var(--success);">${fmtCur(mTot)}</span>
+        </td>
+      `;
+    } else {
+      html += `<td class="text-end" style="color:var(--text-secondary); opacity:0.35;">-</td>`;
+    }
   }
 
   html += `
-          <td class="text-end" style="background: rgba(0, 200, 150, 0.2); color: var(--success); font-size: 13px; font-weight: 800;">${fmtCur(grandTotal)}</td>
+          <td class="text-end" style="background: rgba(0, 200, 150, 0.25); color: var(--success); font-size: 13px; font-weight: 800; cursor: ${grandTotal > 0 ? 'pointer' : 'default'};" ${grandTotal > 0 ? `onclick="event.stopPropagation(); showEoMonthDetailsModal('ALL', '${selectedFy}', '${overallFyLabel}')" title="Click to view total date-wise recoveries across ALL Enforcement Officers in ${overallFyLabel}"` : ''}>
+            ${fmtCur(grandTotal)}
+          </td>
         </tr>
       </tbody>
     </table>
@@ -1167,13 +1195,19 @@ function showEoMonthDetailsModal(eoName, targetYm, periodLabel) {
   _currentEoMonthDetails = { eoName, targetYm, periodLabel, records: [], totals: {} };
   _eoMonthDetailsSort = { col: 'date', dir: 'desc' };
 
+  const isAllEos = (eoName === 'ALL' || eoName === 'ALL Enforcement Officers');
+  const titleText = isAllEos ? `Date-Wise Payment Receipts — ALL Enforcement Officers` : `Date-Wise Payment Receipts — ${eoName}`;
+  const subText = isAllEos 
+    ? `Account-wise and date-wise collections for ${periodLabel} across ALL Enforcement Officers` 
+    : `Account-wise and date-wise collections for ${periodLabel} across establishments assigned to ${eoName}`;
+
   const titleEl = document.getElementById('eoMonthDetailsTitle');
   const subEl = document.getElementById('eoMonthDetailsSubtitle');
   if (titleEl) {
-    titleEl.innerHTML = `<i class="fas fa-receipt me-2" style="color: var(--success);"></i> Date-Wise Payment Receipts — ${eoName}`;
+    titleEl.innerHTML = `<i class="fas fa-receipt me-2" style="color: var(--success);"></i> ${titleText}`;
   }
   if (subEl) {
-    subEl.textContent = `Account-wise and date-wise collections for ${periodLabel} across establishments assigned to ${eoName}`;
+    subEl.textContent = subText;
   }
 
   // 1. Filter appData.recoveryLog for payments matching this EO and targetYm
@@ -1219,14 +1253,18 @@ function showEoMonthDetailsModal(eoName, targetYm, periodLabel) {
     }
 
     // Match receipt to master establishment to check EO assignment
-    const masterMatch = appData.master.find(r => 
-      (l.type && cleanStr(r.est_code) === cleanStr(l.est_code) && cleanStr(r.type) === cleanStr(l.type)) ||
-      (cleanStr(r.est_code) !== '' && cleanStr(r.est_code) === cleanStr(l.est_code)) ||
-      (cleanStr(r.rrc_no) !== '' && cleanStr(r.rrc_no) === cleanStr(l.rrc_no))
-    );
+    if (!isAllEos) {
+      const masterMatch = appData.master.find(r => 
+        (l.type && cleanStr(r.est_code) === cleanStr(l.est_code) && cleanStr(r.type) === cleanStr(l.type)) ||
+        (cleanStr(r.est_code) !== '' && cleanStr(r.est_code) === cleanStr(l.est_code)) ||
+        (cleanStr(r.rrc_no) !== '' && cleanStr(r.rrc_no) === cleanStr(l.rrc_no))
+      );
 
-    const matchEo = cleanStr(masterMatch ? masterMatch.enforcement_officer : '') || 'UNASSIGNED';
-    return cleanStr(matchEo).toLowerCase() === cleanStr(eoName).toLowerCase();
+      const matchEo = cleanStr(masterMatch ? masterMatch.enforcement_officer : '') || 'UNASSIGNED';
+      if (cleanStr(matchEo).toLowerCase() !== cleanStr(eoName).toLowerCase()) return false;
+    }
+
+    return true;
   });
 
   if (matchingLogs.length === 0) {
