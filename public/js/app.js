@@ -33,9 +33,193 @@ function cleanStr(val) {
   return s === 'nan' ? '' : s;
 }
 
-const APP_VERSION = 'v2.9.1';
+const APP_VERSION = 'v3.1.0';
 
 const APP_RELEASE_LOG = [
+  {
+    version: 'v3.1.0',
+    date: '2026-07-30',
+    title: 'DD/MM/YYYY Payment Date Display Formatting in Month-Wise Recovery Breakdown Matrix',
+    changes: [
+      'Built formatDisplayDate helper function to convert payment receipt dates to standard DD/MM/YYYY format across the EO Month Breakdown popup table.',
+      'Maintained 100% accurate chronological sorting and CSV/PDF report formatting in DD/MM/YYYY style.'
+    ]
+  },
+  {
+    version: 'v3.0.9',
+    date: '2026-07-30',
+    title: 'Interactive Multi-Column Header Sorting & Chronological Payment Date Sort Engine',
+    changes: [
+      'Added interactive column header sorting (Newest to Oldest / Oldest to Newest) for Payment Date in EO Month Details modal.',
+      'Built parseSortableDate helper supporting ISO (YYYY-MM-DD) and Indian date formats (DD-MM-YYYY, DD/MM/YYYY) for 100% accurate chronological sorting.',
+      'Added column header sorting for EST Code, Establishment Name, Type, Receipt No, Total Dues OB, Opening Pending, Total Paid, and Closing Pending.'
+    ]
+  },
+  {
+    version: 'v3.0.8',
+    date: '2026-07-30',
+    title: 'Precision Certificate Matching & Running Opening/Closing Pending Balance Rectification',
+    changes: [
+      'Rectified master establishment certificate matching to pair est_code and certificate type (14B, 7A, 7Q) strictly.',
+      'Corrected running balance calculations so Opening Pending displays exact carried-forward balance (e.g. 4,400) and Closing Pending displays exact remaining balance (Opening Pending - Paid, e.g. 4,400 - 2,092 = 2,308).'
+    ]
+  },
+  {
+    version: 'v3.0.7',
+    date: '2026-07-30',
+    title: 'EO Month Matrix Modal Popup Click Handler & Variable Reference Fix',
+    changes: [
+      'Fixed ReferenceError on grandOpeningPending and grandClosingPending variable declarations in showEoMonthDetailsModal.',
+      'Upgraded date parsing and case-insensitive Enforcement Officer name matching for 100% reliable popup modal opening when clicking matrix month amounts.'
+    ]
+  },
+  {
+    version: 'v3.0.6',
+    date: '2026-07-30',
+    title: 'Running Monthly Opening Pending & Closing Pending Balance Columns in EO Month Matrix Details',
+    changes: [
+      'Added Opening Pending (₹) column after Total Dues OB to show running opening pending dues at the start of each month.',
+      'Renamed ending balance column to Closing Pending (₹) to display exact remaining balance at the end of each month after recovery.',
+      'Updated CSV export and PDF report generators with running opening and closing balance fields.'
+    ]
+  },
+  {
+    version: 'v3.0.5',
+    date: '2026-07-30',
+    title: 'As-Of-Date Pending Balance & Chronological Fully Recovered Status Rectification',
+    changes: [
+      'Rectified pending balance calculation in EO Month Details modal to compute cumulative recoveries as of that receipt date.',
+      'Corrected Fully Recovered status highlighting so establishments (e.g. ORBBS00003351 14B) show accurate partial balance (e.g. 4,400) in earlier months, becoming 0 & Fully Recovered ONLY in the month final payment was received.'
+    ]
+  },
+  {
+    version: 'v3.0.4',
+    date: '2026-07-30',
+    title: 'Increased Font Size (12px) for EST Code and Establishment Name in EO Month Details Modal',
+    changes: [
+      'Increased font size to 12px for both EST Code and Establishment Name cells in the EO Month Details popup table.',
+      'Slightly expanded Establishment Name max-width to 180px for high-definition legibility and crisp visual clarity.'
+    ]
+  },
+  {
+    version: 'v3.0.3',
+    date: '2026-07-30',
+    title: 'EST Code Font Family & Typography Harmonization in EO Month Recovery Breakdown Modal',
+    changes: [
+      'Updated EST Code cell styling in EO Month Details popup table to match Establishment Name and figures typography (11px, bold, primary sans-serif font).',
+      'Harmonized row typography across all 15 table columns for clean visual consistency.'
+    ]
+  },
+  {
+    version: 'v3.0.2',
+    date: '2026-07-30',
+    title: 'Optimized Establishment Name Column Width & Generous Spacing for Amount Columns',
+    changes: [
+      'Constrained Establishment Name column max-width to 175px with tooltip and clean ellipsis truncation.',
+      'Expanded all monetary amount columns (Total Dues OB, Acc 1-22, Total Paid, Pending Amount) with generous width and padding.',
+      'Guaranteed flawless widescreen alignment without horizontal scroll bar or overlapping text.'
+    ]
+  },
+  {
+    version: 'v3.0.1',
+    date: '2026-07-30',
+    title: 'Total Dues OB, Pending Amount Columns & Fully Recovered Row Highlighting in EO Month Details',
+    changes: [
+      'Added Total Dues OB (₹) column after Receipt/Challan No and Pending Amount (₹) column after Total Paid in EO Month Details popup.',
+      'Highlighted fully recovered establishments in soft green background with explicit "Fully Recovered" badges.',
+      'Updated CSV and PDF report exporters to include outstanding balances and fully recovered status.'
+    ]
+  },
+  {
+    version: 'v3.0.0',
+    date: '2026-07-30',
+    title: 'Zero-Scroll EO Month Breakdown Table & Widescreen Single-Window Layout',
+    changes: [
+      'Expanded EO Month Details popup modal container width to 98% for seamless all-column single-window viewing.',
+      'Removed horizontal scroll bars by adopting proportional table layout, compact padding, and crisp typography.',
+      'Optimized 13-column account breakdown view so all daily receipts fit cleanly without horizontal scrolling.'
+    ]
+  },
+  {
+    version: 'v2.9.9',
+    date: '2026-07-30',
+    title: 'Interactive Month-Wise EO Recovery Details Popup with Account-Wise & Date-Wise Collections',
+    changes: [
+      'Added interactive click handler on EO Month Matrix cells to open Date-Wise Payment Receipts Popup Modal.',
+      'Renders detailed daily receipt logs per EO with 5-account breakdown (Acc 1, Acc 2, Acc 10, Acc 21, Acc 22) and EST information.',
+      'Added Export CSV and Export PDF buttons on the EO Month Details popup modal with direct establishment ledger access.'
+    ]
+  },
+  {
+    version: 'v2.9.8',
+    date: '2026-07-30',
+    title: 'Automatic Financial Year Roll-Over (e.g. FY 2027-28 on 01.04.2027) & Full Historical FY Dropdown',
+    changes: [
+      'Implemented real-time financial year calculation (Apr–Mar) with automatic roll-over on 01.04.2027 to FY 2027–28.',
+      'Restored full historical financial year list (FY 2025–26, FY 2024–25, FY 2023–24, FY 2022–23...) below current active FY.',
+      'Ensured all previous financial years remain accessible with All Financial Years aggregate option at the bottom.'
+    ]
+  },
+  {
+    version: 'v2.9.7',
+    date: '2026-07-30',
+    title: 'Top Financial Year Dropdown Priority & FY 2026-27 (Apr-Mar) Instant Matrix Rendering',
+    changes: [
+      'Added explicit FY 2026–27 (Apr–Mar) option on top of the Financial Year dropdown in index.html.',
+      'Set FY 2026–27 (Apr–Mar) as the primary default selected value in renderEoMonthlyMatrixCard() and populateEoFyOptions().',
+      'Guaranteed immediate loading of July 2026 recovery amounts under the July column on dashboard initialization.'
+    ]
+  },
+  {
+    version: 'v2.9.6',
+    date: '2026-07-30',
+    title: 'Dynamic Financial Year Selector & July 2026 Payment Receipts Matrix Sync Fix',
+    changes: [
+      'Fixed month-wise EO matrix filtering by dynamically detecting active Financial Year (FY 2026–27 for July 2026 receipts).',
+      'Added populateEoFyOptions() to auto-detect all financial years from recovery_log and set active year as default selector.',
+      'Enhanced master establishment matching logic by matching est_code, type, and rrc_no across receipt records.'
+    ]
+  },
+  {
+    version: 'v2.9.5',
+    date: '2026-07-30',
+    title: 'Enforcement Officers (EO) Month-Wise Recovery Matrix Dashboard Card (April – March)',
+    changes: [
+      'Added new Dashboard Card listing all Enforcement Officers (EOs) with April–March month-by-month recovery collections.',
+      'Added column totals for every month (April to March) and row totals for each Enforcement Officer.',
+      'Added Financial Year dropdown selector (FY 2025–26, FY 2024–25, All Time) and CSV export for the matrix.'
+    ]
+  },
+  {
+    version: 'v2.9.4',
+    date: '2026-07-30',
+    title: 'Added Total Payment Received Column across EO RRC Filter & Top Defaulters Modals',
+    changes: [
+      'Added "Total Payment Received (₹)" column between Total Dues OB and Pending Amount in the EO-wise Pending RRC List popup.',
+      'Added "Total Payment Received (₹)" column between Total Dues OB and Pending Amount in the Top Defaulters Watchlist modal.',
+      'Added interactive column sorting for Total Payment Received across both table views and updated CSV exports.'
+    ]
+  },
+  {
+    version: 'v2.9.3',
+    date: '2026-07-30',
+    title: 'PDF Output Formatting — Currency Symbol Cleanup in Data Rows',
+    changes: [
+      'Removed Rs. and ₹ currency symbols from all data rows across all 11 PDF export modules.',
+      'Retained (Rs.) currency unit indicators exclusively in PDF table header rows for clean monetary alignment.',
+      'Ensured consistent number layout and right-aligned metric formatting across all downloadable reports.'
+    ]
+  },
+  {
+    version: 'v2.9.2',
+    date: '2026-07-30',
+    title: 'Symmetric Receipt Key Matching & PostgreSQL Integer ID Deletion Fix',
+    changes: [
+      'Fixed payment deletion error on Railway live deployment by casting primary key IDs to integers for Supabase REST API calls.',
+      'Synchronized receipt grouping keys between buildReceiptLedgerSection and deleteReceiptGroup for 100% key match.',
+      'Refactored DB deletion fallback to avoid redundant property queries when primary key array deletion succeeds.'
+    ]
+  },
   {
     version: 'v2.9.1',
     date: '2026-07-30',
@@ -510,7 +694,9 @@ async function loadAllData() {
 
     updateGlobalMetrics();
     populateEoMonthOptions();
+    populateEoFyOptions();
     renderEoPerformanceCards();
+    renderEoMonthlyMatrixCard();
     renderSevenAnalyticsCards();
     updateSearchDropdown(appData.currentMode);
     clearDashboardData();
@@ -667,6 +853,776 @@ function renderEoPerformanceCards() {
 }
 
 // -----------------------------------------------------------------------
+// Enforcement Officers (EO) Month-Wise Recovery Matrix Card (Apr - Mar)
+// -----------------------------------------------------------------------
+function populateEoFyOptions() {
+  const select = document.getElementById('eoFySelect');
+  if (!select) return;
+
+  const fyStartYears = new Set();
+  
+  // 1. Calculate current active Financial Year start year dynamically based on real-time system date
+  const now = new Date();
+  const curY = now.getFullYear();
+  const curM = now.getMonth() + 1; // 1-12 (Apr=4, Mar=3)
+  const curFyStart = curM >= 4 ? curY : curY - 1;
+  const curFyKey = `${curFyStart}-${curFyStart + 1}`;
+
+  // Add current active FY start year and past years (up to 5 previous years)
+  fyStartYears.add(curFyStart);
+  for (let y = curFyStart - 1; y >= curFyStart - 5; y--) {
+    fyStartYears.add(y);
+  }
+
+  // 2. Extract all historical FY start years present in recoveryLog
+  appData.recoveryLog.forEach(l => {
+    if (l.date) {
+      const dateStr = String(l.date).trim();
+      if (dateStr.length >= 7) {
+        const y = parseInt(dateStr.slice(0, 4), 10);
+        const m = parseInt(dateStr.slice(5, 7), 10);
+        if (!isNaN(y) && !isNaN(m) && m >= 1 && m <= 12) {
+          const fyStart = m >= 4 ? y : y - 1;
+          fyStartYears.add(fyStart);
+        }
+      }
+    }
+  });
+
+  // Sort start years in descending order (highest/latest first: e.g. 2027, 2026, 2025, 2024...)
+  const sortedStarts = Array.from(fyStartYears).sort((a, b) => b - a);
+
+  const prevVal = select.value;
+  select.innerHTML = '';
+
+  // Build options for all financial years
+  sortedStarts.forEach(y1 => {
+    const y2 = y1 + 1;
+    const fyKey = `${y1}-${y2}`;
+    const label = `FY ${y1}–${String(y2).slice(-2)} (Apr–Mar)`;
+    const op = document.createElement('option');
+    op.value = fyKey;
+    op.textContent = label;
+    select.appendChild(op);
+  });
+
+  // All Financial Years aggregate option
+  const allOp = document.createElement('option');
+  allOp.value = 'ALL';
+  allOp.textContent = 'All Financial Years';
+  select.appendChild(allOp);
+
+  // Preserve user selection if valid, otherwise default to current active FY
+  if (prevVal && Array.from(select.options).some(o => o.value === prevVal)) {
+    select.value = prevVal;
+  } else {
+    select.value = curFyKey;
+  }
+}
+
+function renderEoMonthlyMatrixCard() {
+  const container = document.getElementById('eoMonthlyMatrixContainer');
+  if (!container) return;
+
+  const fySelect = document.getElementById('eoFySelect');
+  
+  // Calculate current active FY key if select is uninitialized
+  const now = new Date();
+  const curY = now.getFullYear();
+  const curM = now.getMonth() + 1;
+  const curFyStart = curM >= 4 ? curY : curY - 1;
+  const curFyKey = `${curFyStart}-${curFyStart + 1}`;
+
+  const selectedFy = (fySelect && fySelect.value && fySelect.value !== '') ? fySelect.value : curFyKey;
+
+  const monthsHeader = ['April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'];
+  
+  // Parse start and end year for financial year
+  let startY = curFyStart;
+  let endY = curFyStart + 1;
+  if (selectedFy !== 'ALL' && selectedFy.includes('-')) {
+    const parts = selectedFy.split('-');
+    if (parts.length === 2) {
+      startY = parseInt(parts[0], 10);
+      endY = parseInt(parts[1], 10);
+    }
+  }
+
+  // Get sorted list of all EOs
+  const allEos = Array.from(new Set(appData.master.map(r => cleanStr(r.enforcement_officer) || 'UNASSIGNED'))).sort();
+
+  if (allEos.length === 0) {
+    container.innerHTML = '<div style="color: var(--text-secondary); font-size: 13px; padding: 10px;">No Enforcement Officers found.</div>';
+    return;
+  }
+
+  // Initialize matrix data: matrix[eo][0..11] = 0
+  let matrix = {};
+  let eoTotal = {};
+  let monthTotals = new Array(12).fill(0);
+  let grandTotal = 0;
+
+  allEos.forEach(eo => {
+    matrix[eo] = new Array(12).fill(0);
+    eoTotal[eo] = 0;
+  });
+
+  // Calculate monthly deposits from recoveryLog
+  appData.recoveryLog.forEach(l => {
+    if (!l.date) return;
+    const dateStr = String(l.date).trim();
+    if (dateStr.length < 7) return;
+
+    const y = parseInt(dateStr.slice(0, 4), 10);
+    const m = parseInt(dateStr.slice(5, 7), 10);
+    if (isNaN(y) || isNaN(m) || m < 1 || m > 12) return;
+
+    // Financial year filter
+    if (selectedFy !== 'ALL') {
+      if (!((y === startY && m >= 4) || (y === endY && m <= 3))) return;
+    }
+
+    // Map month (1..12) to Apr-Mar index (0..11)
+    let monthIdx = m >= 4 ? m - 4 : m + 8;
+
+    const amt = parseFloat(l.amount_deposited) || 0;
+    if (amt <= 0) return;
+
+    // Match receipt to master establishment to find EO
+    const masterMatch = appData.master.find(r => 
+      (l.type && cleanStr(r.est_code) === cleanStr(l.est_code) && cleanStr(r.type) === cleanStr(l.type)) ||
+      (cleanStr(r.est_code) !== '' && cleanStr(r.est_code) === cleanStr(l.est_code)) ||
+      (cleanStr(r.rrc_no) !== '' && cleanStr(r.rrc_no) === cleanStr(l.rrc_no))
+    );
+    const eo = cleanStr(masterMatch ? masterMatch.enforcement_officer : '') || 'UNASSIGNED';
+
+    if (matrix[eo]) {
+      matrix[eo][monthIdx] += amt;
+      eoTotal[eo] += amt;
+      monthTotals[monthIdx] += amt;
+      grandTotal += amt;
+    }
+  });
+
+  let html = `
+    <div class="table-responsive" style="max-height: 520px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 8px;">
+      <table class="ledger-table table-hover align-middle mb-0" style="font-size: 11.5px;">
+        <thead style="position: sticky; top: 0; z-index: 10; background: var(--bg-card-alt); border-bottom: 2px solid var(--border-color);">
+          <tr>
+            <th style="min-width: 40px;" class="text-center">#</th>
+            <th style="min-width: 170px;">Enforcement Officer (EO)</th>
+  `;
+
+  monthsHeader.forEach(mName => {
+    html += `<th class="text-end" style="min-width: 90px;">${mName}</th>`;
+  });
+
+  html += `
+            <th class="text-end" style="min-width: 115px; background: rgba(108, 92, 231, 0.15); color: var(--accent); font-weight: 700;">Total (₹)</th>
+          </tr>
+        </thead>
+        <tbody>
+  `;
+
+  allEos.forEach((eo, idx) => {
+    const rowTot = eoTotal[eo] || 0;
+    const safeEo = eo.replace(/'/g, "\\'");
+
+    html += `
+      <tr style="cursor: pointer;" onclick="filterByEo('${safeEo}')" title="Click to view pending RRC list for ${eo}">
+        <td class="text-center"><strong>#${idx + 1}</strong></td>
+        <td><strong style="color: var(--text-primary);"><i class="fas fa-user-shield me-1" style="font-size: 10px; color: var(--warning);"></i> ${eo}</strong></td>
+    `;
+
+    for (let mi = 0; mi < 12; mi++) {
+      const val = matrix[eo][mi];
+      const mName = monthsHeader[mi];
+      const targetYear = mi < 9 ? startY : endY;
+      const monthNum = mi < 9 ? mi + 4 : mi - 8;
+      const targetYm = `${targetYear}-${String(monthNum).padStart(2, '0')}`;
+      const mLabel = `${mName} ${targetYear}`;
+
+      if (val > 0) {
+        html += `
+          <td class="text-end val-cleared" style="font-weight: 700; cursor: pointer;" onclick="event.stopPropagation(); showEoMonthDetailsModal('${safeEo}', '${targetYm}', '${mLabel}')" title="Click to view date-wise payment receipts for ${eo} in ${mLabel}">
+            <span style="border-bottom: 1px dashed var(--success);">${fmtCur(val)}</span>
+          </td>
+        `;
+      } else {
+        html += `<td class="text-end" style="color:var(--text-secondary); opacity:0.35;">-</td>`;
+      }
+    }
+
+    const rowFyLabel = selectedFy === 'ALL' ? 'All Financial Years' : `FY ${selectedFy}`;
+
+    html += `
+        <td class="text-end" style="background: rgba(108, 92, 231, 0.08); font-weight: 700; color: var(--accent); cursor: ${rowTot > 0 ? 'pointer' : 'default'};" ${rowTot > 0 ? `onclick="event.stopPropagation(); showEoMonthDetailsModal('${safeEo}', '${selectedFy}', '${rowFyLabel}')" title="Click to view all date-wise payment receipts for ${eo}"` : ''}>
+          ${fmtCur(rowTot)}
+        </td>
+      </tr>
+    `;
+  });
+
+  // Footer Totals Row
+  html += `
+        <tr class="total-row" style="font-weight: 700; background: var(--bg-card-alt); font-size: 12px; position: sticky; bottom: 0; z-index: 5; border-top: 2px solid var(--border-color);">
+          <td colspan="2" class="text-start"><i class="fas fa-calculator me-1" style="color: var(--success);"></i> MONTHLY GRAND TOTAL</td>
+  `;
+
+  for (let mi = 0; mi < 12; mi++) {
+    const mTot = monthTotals[mi];
+    html += `<td class="text-end val-cleared" style="font-weight: 800;">${mTot > 0 ? fmtCur(mTot) : '<span style="color:var(--text-secondary); opacity:0.35;">-</span>'}</td>`;
+  }
+
+  html += `
+          <td class="text-end" style="background: rgba(0, 200, 150, 0.2); color: var(--success); font-size: 13px; font-weight: 800;">${fmtCur(grandTotal)}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  `;
+
+  container.innerHTML = html;
+}
+
+// -----------------------------------------------------------------------
+// EO Month-Wise Date & Account Breakdown Modal & Exporters
+// -----------------------------------------------------------------------
+function formatDisplayDate(dStr) {
+  if (!dStr) return '-';
+  const s = String(dStr).trim();
+  if (s.includes('-')) {
+    const parts = s.split('T')[0].split('-');
+    if (parts[0].length === 4) {
+      return `${parts[2].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${parts[0]}`;
+    } else if (parts[2] && parts[2].length === 4) {
+      return `${parts[0].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${parts[2]}`;
+    }
+  } else if (s.includes('/')) {
+    const parts = s.split('T')[0].split('/');
+    if (parts[0].length === 4) {
+      return `${parts[2].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${parts[0]}`;
+    } else if (parts[2] && parts[2].length === 4) {
+      return `${parts[0].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${parts[2]}`;
+    }
+  }
+  return s;
+}
+
+function parseSortableDate(dStr) {
+  if (!dStr) return 0;
+  const s = String(dStr).trim();
+  if (s.includes('-')) {
+    const parts = s.split('T')[0].split('-');
+    if (parts[0].length === 4) {
+      const y = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10) - 1;
+      const d = parseInt(parts[2], 10);
+      return new Date(y, m, d).getTime() || 0;
+    } else if (parts[2] && parts[2].length === 4) {
+      const y = parseInt(parts[2], 10);
+      const m = parseInt(parts[1], 10) - 1;
+      const d = parseInt(parts[0], 10);
+      return new Date(y, m, d).getTime() || 0;
+    }
+  } else if (s.includes('/')) {
+    const parts = s.split('T')[0].split('/');
+    if (parts[2] && parts[2].length === 4) {
+      const y = parseInt(parts[2], 10);
+      const m = parseInt(parts[1], 10) - 1;
+      const d = parseInt(parts[0], 10);
+      return new Date(y, m, d).getTime() || 0;
+    } else if (parts[0].length === 4) {
+      const y = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10) - 1;
+      const d = parseInt(parts[2], 10);
+      return new Date(y, m, d).getTime() || 0;
+    }
+  }
+  const t = new Date(s).getTime();
+  return isNaN(t) ? 0 : t;
+}
+
+let _currentEoMonthDetails = {
+  eoName: '',
+  targetYm: '',
+  periodLabel: '',
+  records: [],
+  totals: {}
+};
+
+let _eoMonthDetailsSort = { col: 'date', dir: 'desc' };
+
+function sortEoMonthDetails(colKey) {
+  if (_eoMonthDetailsSort.col === colKey) {
+    _eoMonthDetailsSort.dir = _eoMonthDetailsSort.dir === 'desc' ? 'asc' : 'desc';
+  } else {
+    _eoMonthDetailsSort.col = colKey;
+    _eoMonthDetailsSort.dir = (colKey === 'date' || colKey.toLowerCase().includes('total') || colKey.toLowerCase().includes('pending') || colKey.toLowerCase().includes('dues')) ? 'desc' : 'asc';
+  }
+  renderEoMonthDetailsTable();
+}
+
+function showEoMonthDetailsModal(eoName, targetYm, periodLabel) {
+  _currentEoMonthDetails = { eoName, targetYm, periodLabel, records: [], totals: {} };
+  _eoMonthDetailsSort = { col: 'date', dir: 'desc' };
+
+  const titleEl = document.getElementById('eoMonthDetailsTitle');
+  const subEl = document.getElementById('eoMonthDetailsSubtitle');
+  if (titleEl) {
+    titleEl.innerHTML = `<i class="fas fa-receipt me-2" style="color: var(--success);"></i> Date-Wise Payment Receipts — ${eoName}`;
+  }
+  if (subEl) {
+    subEl.textContent = `Account-wise and date-wise collections for ${periodLabel} across establishments assigned to ${eoName}`;
+  }
+
+  // 1. Filter appData.recoveryLog for payments matching this EO and targetYm
+  const matchingLogs = appData.recoveryLog.filter(l => {
+    if (!l.date) return false;
+    const dateStr = String(l.date).trim();
+    if (dateStr.length < 7) return false;
+
+    let y = 0, m = 0;
+    if (dateStr.includes('-')) {
+      const parts = dateStr.split('T')[0].split('-');
+      if (parts[0].length === 4) {
+        y = parseInt(parts[0], 10);
+        m = parseInt(parts[1], 10);
+      } else if (parts[2] && parts[2].length === 4) {
+        y = parseInt(parts[2], 10);
+        m = parseInt(parts[1], 10);
+      }
+    } else if (dateStr.includes('/')) {
+      const parts = dateStr.split('T')[0].split('/');
+      if (parts[2] && parts[2].length === 4) {
+        y = parseInt(parts[2], 10);
+        m = parseInt(parts[1], 10);
+      } else if (parts[0].length === 4) {
+        y = parseInt(parts[0], 10);
+        m = parseInt(parts[1], 10);
+      }
+    }
+
+    // Filter by YYYY-MM or FY range
+    if (targetYm !== 'ALL' && !targetYm.startsWith('ALL_MONTHS')) {
+      if (targetYm.includes('-') && targetYm.length === 7) {
+        const parts = targetYm.split('-');
+        const tY = parseInt(parts[0], 10);
+        const tM = parseInt(parts[1], 10);
+        if (y !== tY || m !== tM) return false;
+      } else if (targetYm.includes('-') && targetYm.length === 9) {
+        const parts = targetYm.split('-');
+        const sY = parseInt(parts[0], 10);
+        const eY = parseInt(parts[1], 10);
+        if (!((y === sY && m >= 4) || (y === eY && m <= 3))) return false;
+      }
+    }
+
+    // Match receipt to master establishment to check EO assignment
+    const masterMatch = appData.master.find(r => 
+      (l.type && cleanStr(r.est_code) === cleanStr(l.est_code) && cleanStr(r.type) === cleanStr(l.type)) ||
+      (cleanStr(r.est_code) !== '' && cleanStr(r.est_code) === cleanStr(l.est_code)) ||
+      (cleanStr(r.rrc_no) !== '' && cleanStr(r.rrc_no) === cleanStr(l.rrc_no))
+    );
+
+    const matchEo = cleanStr(masterMatch ? masterMatch.enforcement_officer : '') || 'UNASSIGNED';
+    return cleanStr(matchEo).toLowerCase() === cleanStr(eoName).toLowerCase();
+  });
+
+  if (matchingLogs.length === 0) {
+    document.getElementById('eoMonthDetailsModalBody').innerHTML = `
+      <div style="padding: 35px; text-align: center; color: var(--text-secondary);">
+        <i class="fas fa-info-circle me-2" style="font-size: 20px; color: var(--accent);"></i>
+        No date-wise receipt records found for <strong>${eoName}</strong> in <strong>${periodLabel}</strong>.
+      </div>
+    `;
+    openModal('eoMonthDetailsModal');
+    return;
+  }
+
+  // 2. Group by Txn_ID or Receipt No / Date + EST Code
+  let grouped = {};
+  matchingLogs.forEach(l => {
+    const dt = l.date ? String(l.date).slice(0, 10) : '';
+    const rcpt = cleanStr(l.receipt_no);
+    const estCode = cleanStr(l.est_code);
+    const key = l.txn_id || `${dt}___${estCode}___${rcpt}`;
+    if (!grouped[key]) grouped[key] = [];
+    grouped[key].push(l);
+  });
+
+  // Sort groups by Date descending
+  const sortedKeys = Object.keys(grouped).sort((a, b) => {
+    const dtA = grouped[a][0].date ? parseSortableDate(grouped[a][0].date) : 0;
+    const dtB = grouped[b][0].date ? parseSortableDate(grouped[b][0].date) : 0;
+    return dtB - dtA;
+  });
+
+  const accounts = ['1', '2', '10', '21', '22'];
+  let totalAcc = { '1': 0, '2': 0, '10': 0, '21': 0, '22': 0 };
+  let grandTotalDues = 0;
+  let grandOpeningPending = 0;
+  let grandTotalPaid = 0;
+  let grandClosingPending = 0;
+  let parsedRecords = [];
+
+  sortedKeys.forEach((gKey, idx) => {
+    const group = grouped[gKey];
+    const first = group[0];
+    const rawDt = first.date ? String(first.date).slice(0, 10) : '-';
+    const displayDt = formatDisplayDate(first.date);
+    const estCode = cleanStr(first.est_code);
+    const rcpt = cleanStr(first.receipt_no) || '-';
+
+    // Find master info for est_name, type, dues, and pending amount with strict type pairing
+    let masterMatch = appData.master.find(r => 
+      cleanStr(r.est_code).toLowerCase() === estCode.toLowerCase() && 
+      first.type && cleanStr(r.type).toLowerCase() === cleanStr(first.type).toLowerCase()
+    );
+
+    if (!masterMatch && first.rrc_no) {
+      masterMatch = appData.master.find(r => cleanStr(r.rrc_no).toLowerCase() === cleanStr(first.rrc_no).toLowerCase());
+    }
+
+    if (!masterMatch) {
+      masterMatch = appData.master.find(r => cleanStr(r.est_code).toLowerCase() === estCode.toLowerCase());
+    }
+
+    const estName = cleanStr(masterMatch ? masterMatch.est_name : '') || 'Unknown Establishment';
+    const typeStr = cleanStr(first.type || (masterMatch ? masterMatch.type : ''));
+    const totalDues = parseFloat(masterMatch ? masterMatch.recovery_ob : 0) || 0;
+
+    // Calculate cumulative payments for this establishment STRICTLY BEFORE this receipt's date/id
+    let cumPaidPriorToDate = 0;
+    appData.recoveryLog.forEach(l => {
+      if (!l.date) return;
+      const lEst = cleanStr(l.est_code).toLowerCase();
+      const lType = cleanStr(l.type).toLowerCase();
+      const lRrc = cleanStr(l.rrc_no).toLowerCase();
+
+      const targetEst = estCode.toLowerCase();
+      const targetType = typeStr.toLowerCase();
+
+      const isMatch = (targetType !== '' && lEst === targetEst && lType === targetType) ||
+                      (masterMatch && cleanStr(masterMatch.rrc_no) !== '' && lRrc === cleanStr(masterMatch.rrc_no).toLowerCase()) ||
+                      (targetType === '' && targetEst !== '' && lEst === targetEst);
+
+      if (isMatch) {
+        const lDt = String(l.date).slice(0, 10);
+        const firstId = first.id || 0;
+        const lId = l.id || 0;
+        if (lDt < rawDt || (lDt === rawDt && lId < firstId)) {
+          cumPaidPriorToDate += parseFloat(l.amount_deposited) || 0;
+        }
+      }
+    });
+
+    let accSums = { '1': 0, '2': 0, '10': 0, '21': 0, '22': 0 };
+    let rowTotal = 0;
+
+    group.forEach(g => {
+      const ac = cleanStr(g.account);
+      const amt = parseFloat(g.amount_deposited) || 0;
+      if (accSums[ac] !== undefined) accSums[ac] += amt;
+      rowTotal += amt;
+    });
+
+    // Opening pending balance coming into this month/receipt
+    const openingPending = totalDues > 0 ? Math.max(0, totalDues - cumPaidPriorToDate) : (parseFloat(masterMatch ? masterMatch.pending_curr_year : 0) + rowTotal);
+    
+    // Closing pending balance at end of this month/receipt after recovery
+    const closingPending = Math.max(0, openingPending - rowTotal);
+    
+    // Fully recovered status as of this receipt (cumulative paid >= total dues)
+    const isFullyRecovered = (totalDues > 0 && (cumPaidPriorToDate + rowTotal) >= totalDues) || (closingPending <= 0 && cleanStr(masterMatch ? masterMatch.fully_recovered : '') === 'Yes');
+
+    accounts.forEach(ac => {
+      totalAcc[ac] += accSums[ac];
+    });
+    grandTotalDues += totalDues;
+    grandOpeningPending += openingPending;
+    grandTotalPaid += rowTotal;
+    grandClosingPending += closingPending;
+
+    parsedRecords.push({
+      idx: idx + 1,
+      date: displayDt,
+      estCode,
+      estName,
+      type: typeStr,
+      receiptNo: rcpt,
+      totalDues,
+      openingPending,
+      acc1: accSums['1'],
+      acc2: accSums['2'],
+      acc10: accSums['10'],
+      acc21: accSums['21'],
+      acc22: accSums['22'],
+      totalPaid: rowTotal,
+      closingPending,
+      isFullyRecovered,
+      rowMasterId: masterMatch ? masterMatch.id : 0
+    });
+  });
+
+  _currentEoMonthDetails.records = parsedRecords;
+  _currentEoMonthDetails.totals = {
+    totalAcc,
+    grandTotalDues,
+    grandOpeningPending,
+    grandTotalPaid,
+    grandClosingPending
+  };
+
+  renderEoMonthDetailsTable();
+  openModal('eoMonthDetailsModal');
+}
+
+function renderEoMonthDetailsTable() {
+  if (!_currentEoMonthDetails || !_currentEoMonthDetails.records) return;
+
+  const records = [..._currentEoMonthDetails.records];
+  const col = _eoMonthDetailsSort.col;
+  const dir = _eoMonthDetailsSort.dir;
+  const mult = dir === 'desc' ? -1 : 1;
+
+  records.sort((a, b) => {
+    if (col === 'date') {
+      const tA = parseSortableDate(a.date);
+      const tB = parseSortableDate(b.date);
+      if (tA !== tB) return (tA - tB) * mult;
+      return (a.idx - b.idx) * mult;
+    } else if (col === 'estCode') {
+      return a.estCode.localeCompare(b.estCode) * mult;
+    } else if (col === 'estName') {
+      return a.estName.localeCompare(b.estName) * mult;
+    } else if (col === 'type') {
+      const typeRank = { '7A': 1, '7Q': 2, '14B': 3, '7B': 4 };
+      const rA = typeRank[a.type] || 99;
+      const rB = typeRank[b.type] || 99;
+      return (rA - rB) * mult;
+    } else if (col === 'receiptNo') {
+      return a.receiptNo.localeCompare(b.receiptNo) * mult;
+    } else if (col === 'totalDues') {
+      return (a.totalDues - b.totalDues) * mult;
+    } else if (col === 'openingPending') {
+      return (a.openingPending - b.openingPending) * mult;
+    } else if (col === 'totalPaid') {
+      return (a.totalPaid - b.totalPaid) * mult;
+    } else if (col === 'closingPending') {
+      return (a.closingPending - b.closingPending) * mult;
+    }
+    return 0;
+  });
+
+  const getSortIcon = (colKey) => {
+    if (_eoMonthDetailsSort.col !== colKey) return '<i class="fas fa-sort ms-1" style="opacity: 0.35; font-size: 10px;"></i>';
+    return _eoMonthDetailsSort.dir === 'desc' 
+      ? '<i class="fas fa-sort-amount-down ms-1" style="color: var(--accent); font-size: 11px;"></i>' 
+      : '<i class="fas fa-sort-amount-up ms-1" style="color: var(--accent); font-size: 11px;"></i>';
+  };
+
+  let rowsHtml = '';
+  records.forEach((r, idx) => {
+    const safeCode = r.estCode.replace(/'/g, "\\'");
+    const safeType = r.type.replace(/'/g, "\\'");
+    const rowMasterId = r.rowMasterId || 0;
+
+    const rowBgStyle = r.isFullyRecovered ? 'background: rgba(0, 200, 150, 0.12);' : '';
+    const pendingHtml = r.isFullyRecovered
+      ? '<span style="color: var(--success); font-weight: 800;">0 (Fully Recovered)</span>'
+      : `<span style="color: var(--danger); font-weight: 700;">${fmtCur(r.closingPending)}</span>`;
+
+    const statusBadgeHtml = r.isFullyRecovered
+      ? '<span class="badge" style="background: var(--success); color: #fff; font-size: 8.5px; padding: 2px 5px; border-radius: 4px; margin-left: 4px; font-weight: 700;"><i class="fas fa-check-circle me-1"></i> FULLY RECOVERED</span>'
+      : '';
+
+    rowsHtml += `
+      <tr style="cursor: pointer; font-size: 12px; ${rowBgStyle}" onclick="closeModal('eoMonthDetailsModal'); quickOpenEstablishment('${safeCode}', ${rowMasterId}, '${safeType}')" title="Click to view ${r.estName} (${r.estCode}) ledger">
+        <td class="text-center" style="padding: 5px 3px;"><strong>#${idx + 1}</strong></td>
+        <td style="padding: 5px 4px; white-space: nowrap;"><strong>${r.date}</strong></td>
+        <td style="padding: 5px 4px; white-space: nowrap;"><strong style="color:var(--accent); font-weight:700; font-size:12px;">${r.estCode}</strong></td>
+        <td style="padding: 5px 4px; width: 160px; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${r.estName}"><strong style="color:var(--text-primary); font-size:12px;">${r.estName}</strong>${statusBadgeHtml}</td>
+        <td class="text-center" style="padding: 5px 3px;"><span class="type-badge" style="font-size:10px; padding: 2px 5px;">${r.type}</span></td>
+        <td style="padding: 5px 4px; white-space: nowrap;"><strong>${r.receiptNo}</strong></td>
+        <td class="text-end" style="padding: 5px 5px; background: rgba(108, 92, 231, 0.05); font-weight: 700; color: var(--accent);">${r.totalDues > 0 ? fmtCur(r.totalDues) : '-'}</td>
+        <td class="text-end" style="padding: 5px 5px; background: rgba(241, 196, 15, 0.08); font-weight: 700; color: #d35400;">${r.openingPending > 0 ? fmtCur(r.openingPending) : '-'}</td>
+        <td class="text-end" style="padding: 5px 4px;">${r.acc1 > 0 ? fmtCur(r.acc1) : '-'}</td>
+        <td class="text-end" style="padding: 5px 4px;">${r.acc2 > 0 ? fmtCur(r.acc2) : '-'}</td>
+        <td class="text-end" style="padding: 5px 4px;">${r.acc10 > 0 ? fmtCur(r.acc10) : '-'}</td>
+        <td class="text-end" style="padding: 5px 4px;">${r.acc21 > 0 ? fmtCur(r.acc21) : '-'}</td>
+        <td class="text-end" style="padding: 5px 4px;">${r.acc22 > 0 ? fmtCur(r.acc22) : '-'}</td>
+        <td class="text-end val-cleared" style="padding: 5px 5px; font-weight: 700;">${fmtCur(r.totalPaid)}</td>
+        <td class="text-end" style="padding: 5px 5px; background: ${r.isFullyRecovered ? 'rgba(0, 200, 150, 0.15)' : 'rgba(235, 77, 75, 0.05)'};">${pendingHtml}</td>
+        <td class="text-center" style="padding: 5px 3px;">
+          <button class="sidebar-btn btn-success" style="width:auto; margin:0; padding:3px 7px; font-size:10px; border-radius:5px;" onclick="event.stopPropagation(); closeModal('eoMonthDetailsModal'); quickOpenEstablishment('${safeCode}', ${rowMasterId}, '${safeType}')">
+            <i class="fas fa-folder-open me-1"></i> Ledger
+          </button>
+        </td>
+      </tr>
+    `;
+  });
+
+  const totals = _currentEoMonthDetails.totals || {};
+
+  let html = `
+    <div style="max-height: 540px; overflow-y: auto; overflow-x: hidden; width: 100%;">
+      <table class="ledger-table table-hover align-middle mb-0" id="eoMonthDetailsTable" style="width: 100%; table-layout: auto; font-size: 11px;">
+        <thead style="position: sticky; top: 0; z-index: 10; background: var(--bg-card-alt); font-size: 11px;">
+          <tr>
+            <th class="text-center" style="width: 28px; padding: 6px 3px;">#</th>
+            <th style="width: 95px; padding: 6px 4px; white-space: nowrap; cursor: pointer;" onclick="sortEoMonthDetails('date')" title="Click to sort Payment Date chronologically (Newest to Oldest / Oldest to Newest)">Payment Date ${getSortIcon('date')}</th>
+            <th style="width: 105px; padding: 6px 4px; cursor: pointer;" onclick="sortEoMonthDetails('estCode')" title="Click to sort by EST Code">EST Code ${getSortIcon('estCode')}</th>
+            <th style="width: 160px; max-width: 160px; padding: 6px 4px; cursor: pointer;" onclick="sortEoMonthDetails('estName')" title="Click to sort by Establishment Name">Establishment Name ${getSortIcon('estName')}</th>
+            <th class="text-center" style="width: 42px; padding: 6px 3px; cursor: pointer;" onclick="sortEoMonthDetails('type')" title="Click to sort by Type">Type ${getSortIcon('type')}</th>
+            <th style="width: 80px; padding: 6px 4px; cursor: pointer;" onclick="sortEoMonthDetails('receiptNo')" title="Click to sort by Receipt No">Receipt No ${getSortIcon('receiptNo')}</th>
+            <th class="text-end" style="width: 90px; padding: 6px 5px; background: rgba(108, 92, 231, 0.08); color: var(--accent); cursor: pointer;" onclick="sortEoMonthDetails('totalDues')" title="Click to sort by Total Dues">Total Dues OB (₹) ${getSortIcon('totalDues')}</th>
+            <th class="text-end" style="width: 95px; padding: 6px 5px; background: rgba(241, 196, 15, 0.12); color: #d35400; cursor: pointer;" onclick="sortEoMonthDetails('openingPending')" title="Click to sort by Opening Pending">Opening Pending (₹) ${getSortIcon('openingPending')}</th>
+            <th class="text-end" style="width: 65px; padding: 6px 4px;">Acc 1 (₹)</th>
+            <th class="text-end" style="width: 65px; padding: 6px 4px;">Acc 2 (₹)</th>
+            <th class="text-end" style="width: 65px; padding: 6px 4px;">Acc 10 (₹)</th>
+            <th class="text-end" style="width: 65px; padding: 6px 4px;">Acc 21 (₹)</th>
+            <th class="text-end" style="width: 65px; padding: 6px 4px;">Acc 22 (₹)</th>
+            <th class="text-end" style="width: 90px; padding: 6px 5px; background: rgba(0, 200, 150, 0.15); color: var(--success); font-weight: 700; cursor: pointer;" onclick="sortEoMonthDetails('totalPaid')" title="Click to sort by Total Paid">Total Paid (₹) ${getSortIcon('totalPaid')}</th>
+            <th class="text-end" style="width: 95px; padding: 6px 5px; background: rgba(235, 77, 75, 0.08); color: var(--danger); font-weight: 700; cursor: pointer;" onclick="sortEoMonthDetails('closingPending')" title="Click to sort by Closing Pending">Closing Pending (₹) ${getSortIcon('closingPending')}</th>
+            <th class="text-center" style="width: 70px; padding: 6px 3px;">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHtml}
+          <tr class="total-row" style="font-weight: 700; background: var(--bg-card-alt); position: sticky; bottom: 0; z-index: 5; font-size: 11.5px;">
+            <td colspan="6" class="text-start" style="padding: 6px 8px;"><i class="fas fa-calculator me-1" style="color: var(--success);"></i> TOTAL COLLECTIONS (${records.length} Receipts)</td>
+            <td class="text-end" style="padding: 6px 5px; color: var(--accent);">${totals.grandTotalDues > 0 ? fmtCur(totals.grandTotalDues) : '-'}</td>
+            <td class="text-end" style="padding: 6px 5px; color: #d35400; background: rgba(241, 196, 15, 0.12);">${totals.grandOpeningPending > 0 ? fmtCur(totals.grandOpeningPending) : '-'}</td>
+            <td class="text-end" style="padding: 6px 4px;">${totals.totalAcc['1'] > 0 ? fmtCur(totals.totalAcc['1']) : '-'}</td>
+            <td class="text-end" style="padding: 6px 4px;">${totals.totalAcc['2'] > 0 ? fmtCur(totals.totalAcc['2']) : '-'}</td>
+            <td class="text-end" style="padding: 6px 4px;">${totals.totalAcc['10'] > 0 ? fmtCur(totals.totalAcc['10']) : '-'}</td>
+            <td class="text-end" style="padding: 6px 4px;">${totals.totalAcc['21'] > 0 ? fmtCur(totals.totalAcc['21']) : '-'}</td>
+            <td class="text-end" style="padding: 6px 4px;">${totals.totalAcc['22'] > 0 ? fmtCur(totals.totalAcc['22']) : '-'}</td>
+            <td class="text-end val-cleared" style="font-size: 12px; font-weight: 800; background: rgba(0, 200, 150, 0.2); padding: 6px 5px;">${fmtCur(totals.grandTotalPaid)}</td>
+            <td class="text-end val-pending" style="font-size: 12px; font-weight: 800; background: rgba(235, 77, 75, 0.12); color: var(--danger); padding: 6px 5px;">${totals.grandClosingPending > 0 ? fmtCur(totals.grandClosingPending) : '0'}</td>
+            <td style="padding: 6px 3px;"></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  document.getElementById('eoMonthDetailsModalBody').innerHTML = html;
+}
+
+function exportEoMonthDetailsCsv() {
+  if (!_currentEoMonthDetails || !_currentEoMonthDetails.records || _currentEoMonthDetails.records.length === 0) {
+    return alert('No date-wise collection data to export.');
+  }
+
+  let csv = `Enforcement Officer: ${_currentEoMonthDetails.eoName} — ${_currentEoMonthDetails.periodLabel}\n`;
+  csv += 'Rank,Payment Date,EST Code,Establishment Name,Type,Receipt No,Total Dues OB,Opening Pending,Acc 1,Acc 2,Acc 10,Acc 21,Acc 22,Total Paid,Closing Pending,Status\n';
+
+  let dues = 0, openPend = 0, acc1 = 0, acc2 = 0, acc10 = 0, acc21 = 0, acc22 = 0, tot = 0, closePend = 0;
+
+  _currentEoMonthDetails.records.forEach(r => {
+    const statusStr = r.isFullyRecovered ? 'Fully Recovered' : 'Pending';
+    csv += `${r.idx},"${r.date}","${r.estCode}","${r.estName}","${r.type}","${r.receiptNo}",${r.totalDues},${r.openingPending},${r.acc1},${r.acc2},${r.acc10},${r.acc21},${r.acc22},${r.totalPaid},${r.closingPending},"${statusStr}"\n`;
+    dues += r.totalDues;
+    openPend += r.openingPending;
+    acc1 += r.acc1;
+    acc2 += r.acc2;
+    acc10 += r.acc10;
+    acc21 += r.acc21;
+    acc22 += r.acc22;
+    tot += r.totalPaid;
+    closePend += r.closingPending;
+  });
+
+  csv += `TOTAL,Monthly Grand Total,,,,,,${dues},${openPend},${acc1},${acc2},${acc10},${acc21},${acc22},${tot},${closePend},\n`;
+
+  const safeName = _currentEoMonthDetails.eoName.replace(/[^a-zA-Z0-9_]/g, '_');
+  const safePeriod = _currentEoMonthDetails.periodLabel.replace(/[^a-zA-Z0-9_]/g, '_');
+  downloadCsvFile(csv, `EO_Receipts_${safeName}_${safePeriod}.csv`);
+}
+
+function exportEoMonthDetailsPdf() {
+  if (!_currentEoMonthDetails || !_currentEoMonthDetails.records || _currentEoMonthDetails.records.length === 0) {
+    return alert('No date-wise collection data to export.');
+  }
+  generateReportPdf(
+    `Date-Wise Payment Receipts — ${_currentEoMonthDetails.eoName}`,
+    `Account-wise and date-wise collections for ${_currentEoMonthDetails.periodLabel}`,
+    'eoMonthDetailsModalBody',
+    'landscape'
+  );
+}
+
+function exportEoMatrixCsv() {
+  const fySelect = document.getElementById('eoFySelect');
+  const selectedFy = (fySelect && fySelect.value && fySelect.value !== '') ? fySelect.value : '2026-2027';
+  const labelFy = selectedFy === 'ALL' ? 'All Financial Years' : `FY ${selectedFy}`;
+
+  const monthsHeader = ['April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'];
+  const allEos = Array.from(new Set(appData.master.map(r => cleanStr(r.enforcement_officer) || 'UNASSIGNED'))).sort();
+
+  let matrix = {};
+  let eoTotal = {};
+  let monthTotals = new Array(12).fill(0);
+  let grandTotal = 0;
+
+  allEos.forEach(eo => {
+    matrix[eo] = new Array(12).fill(0);
+    eoTotal[eo] = 0;
+  });
+
+  appData.recoveryLog.forEach(l => {
+    if (!l.date) return;
+    const dateStr = String(l.date).trim();
+    if (dateStr.length < 7) return;
+
+    const y = parseInt(dateStr.slice(0, 4), 10);
+    const m = parseInt(dateStr.slice(5, 7), 10);
+    if (isNaN(y) || isNaN(m) || m < 1 || m > 12) return;
+
+    if (selectedFy !== 'ALL') {
+      const parts = selectedFy.split('-');
+      if (parts.length === 2) {
+        const startY = parseInt(parts[0], 10);
+        const endY = parseInt(parts[1], 10);
+        if (!((y === startY && m >= 4) || (y === endY && m <= 3))) return;
+      }
+    }
+
+    let monthIdx = m >= 4 ? m - 4 : m + 8;
+    const amt = parseFloat(l.amount_deposited) || 0;
+    if (amt <= 0) return;
+
+    const masterMatch = appData.master.find(r => 
+      (l.type && cleanStr(r.est_code) === cleanStr(l.est_code) && cleanStr(r.type) === cleanStr(l.type)) ||
+      (cleanStr(r.est_code) !== '' && cleanStr(r.est_code) === cleanStr(l.est_code)) ||
+      (cleanStr(r.rrc_no) !== '' && cleanStr(r.rrc_no) === cleanStr(l.rrc_no))
+    );
+    const eo = cleanStr(masterMatch ? masterMatch.enforcement_officer : '') || 'UNASSIGNED';
+
+    if (matrix[eo]) {
+      matrix[eo][monthIdx] += amt;
+      eoTotal[eo] += amt;
+      monthTotals[monthIdx] += amt;
+      grandTotal += amt;
+    }
+  });
+
+  let csv = `Enforcement Officers (EO) Month-Wise Recovery Matrix — ${labelFy}\n`;
+  csv += `Rank,Enforcement Officer,${monthsHeader.join(',')},Total Recovered\n`;
+
+  allEos.forEach((eo, idx) => {
+    const rowVals = matrix[eo].join(',');
+    csv += `${idx + 1},"${eo}",${rowVals},${eoTotal[eo] || 0}\n`;
+  });
+
+  csv += `TOTAL,Monthly Grand Total,${monthTotals.join(',')},${grandTotal}\n`;
+
+  downloadCsvFile(csv, `EO_Month_Wise_Recovery_Matrix_${selectedFy}.csv`);
+}
+
+// -----------------------------------------------------------------------
 // Shared Pagination Helper
 // -----------------------------------------------------------------------
 const RRC_PAGE_SIZE = 10;
@@ -712,6 +1668,9 @@ function _sortEoRrcDataset() {
     } else if (_eoRrcSortKey === 'total_dues') {
       valA = parseFloat(a.recovery_ob) || 0;
       valB = parseFloat(b.recovery_ob) || 0;
+    } else if (_eoRrcSortKey === 'recovered') {
+      valA = parseFloat(a.recovered_curr_year) || 0;
+      valB = parseFloat(b.recovered_curr_year) || 0;
     } else if (_eoRrcSortKey === 'est_name') {
       valA = cleanStr(a.est_name);
       valB = cleanStr(b.est_name);
@@ -756,7 +1715,7 @@ function sortEoRrcBy(key) {
     _eoRrcSortAsc = !_eoRrcSortAsc;
   } else {
     _eoRrcSortKey = key;
-    _eoRrcSortAsc = (key === 'pending' || key === 'total_dues') ? false : true;
+    _eoRrcSortAsc = (key === 'pending' || key === 'total_dues' || key === 'recovered') ? false : true;
   }
   _sortEoRrcDataset();
   renderEoRrcPage(1);
@@ -796,12 +1755,14 @@ function renderEoRrcPage(page) {
     ${makeSortableTh('Period', 'period', _eoRrcSortKey, _eoRrcSortAsc, 'sortEoRrcBy')}
     ${makeSortableTh('District', 'district', _eoRrcSortKey, _eoRrcSortAsc, 'sortEoRrcBy')}
     ${makeSortableTh('Total Dues OB (₹)', 'total_dues', _eoRrcSortKey, _eoRrcSortAsc, 'sortEoRrcBy', 'text-end')}
+    ${makeSortableTh('Total Payment Received (₹)', 'recovered', _eoRrcSortKey, _eoRrcSortAsc, 'sortEoRrcBy', 'text-end')}
     ${makeSortableTh('Pending Amount (₹)', 'pending', _eoRrcSortKey, _eoRrcSortAsc, 'sortEoRrcBy', 'text-end')}
     <th class="text-center">Action</th>
   </tr></thead><tbody>`;
 
   pageRecs.forEach((r, i) => {
     const ob = parseFloat(r.recovery_ob) || 0;
+    const rec = parseFloat(r.recovered_curr_year) || 0;
     const pend = parseFloat(r.pending_curr_year) || ob;
     const code = cleanStr(r.est_code);
     const typeStr = cleanStr(r.type);
@@ -817,6 +1778,7 @@ function renderEoRrcPage(page) {
         <td style="font-size:11px;color:var(--text-secondary);">${cleanStr(r.period) || '-'}</td>
         <td>${cleanStr(r.district) || 'N/A'}</td>
         <td class="text-end">${fmtCur(ob)}</td>
+        <td class="text-end val-recovered" style="color:var(--success);font-weight:700;">${fmtCur(rec)}</td>
         <td class="text-end val-pending">${fmtCur(pend)}</td>
         <td class="text-center">
           <button class="sidebar-btn btn-success" style="width:auto;margin:0;padding:4px 10px;font-size:10px;border-radius:6px;" onclick="event.stopPropagation(); closeModal('eoRrcFilterModal'); quickOpenEstablishment('${code}',${r.id},'${typeStr}')">
@@ -832,11 +1794,11 @@ function renderEoRrcPage(page) {
 }
 
 function exportEoRrcFilterCsv() {
-  const labelMap = { pending: 'Pending Amount', total_dues: 'Total Dues OB', est_name: 'Establishment Name', est_code: 'EST Code', type: 'Type', rrc_no: 'RRC No', period: 'Period', district: 'District' };
+  const labelMap = { pending: 'Pending Amount', total_dues: 'Total Dues OB', recovered: 'Total Payment Received', est_name: 'Establishment Name', est_code: 'EST Code', type: 'Type', rrc_no: 'RRC No', period: 'Period', district: 'District' };
   const sortLabel = labelMap[_eoRrcSortKey] || _eoRrcSortKey;
-  let csv = `Enforcement Officer: ${_currentEoFilterName} — Sorted by ${sortLabel} (${_eoRrcSortAsc ? 'Ascending' : 'Descending'})\nRank,EST Code,EST Name,Type,RRC No,Period,District,Total Dues OB,Pending Amount\n`;
+  let csv = `Enforcement Officer: ${_currentEoFilterName} — Sorted by ${sortLabel} (${_eoRrcSortAsc ? 'Ascending' : 'Descending'})\nRank,EST Code,EST Name,Type,RRC No,Period,District,Total Dues OB,Total Payment Received,Pending Amount\n`;
   _eoRrcRecords.forEach((r, idx) => {
-    csv += `${idx + 1},"${cleanStr(r.est_code)}","${cleanStr(r.est_name)}","${cleanStr(r.type)}","${cleanStr(r.rrc_no)}","${cleanStr(r.period) || ''}","${cleanStr(r.district)}",${r.recovery_ob || 0},${r.pending_curr_year || 0}\n`;
+    csv += `${idx + 1},"${cleanStr(r.est_code)}","${cleanStr(r.est_name)}","${cleanStr(r.type)}","${cleanStr(r.rrc_no)}","${cleanStr(r.period) || ''}","${cleanStr(r.district)}",${r.recovery_ob || 0},${r.recovered_curr_year || 0},${r.pending_curr_year || 0}\n`;
   });
   const safeEo = _currentEoFilterName.replace(/[^a-zA-Z0-9_]/g, '_');
   downloadCsvFile(csv, `EO_RRC_Filter_${safeEo}.csv`);
@@ -849,9 +1811,9 @@ function exportEoRrcFilterPdf() {
   const rows = _eoRrcRecords.map((r, i) => [
     i + 1, cleanStr(r.est_code), cleanStr(r.est_name), cleanStr(r.type),
     cleanStr(r.rrc_no), cleanStr(r.period) || '-', cleanStr(r.district) || 'N/A',
-    fmtCur(parseFloat(r.recovery_ob) || 0).replace(/₹/g, 'Rs.'),
-    fmtCur(parseFloat(r.recovered_curr_year) || 0).replace(/₹/g, 'Rs.'),
-    fmtCur(parseFloat(r.pending_curr_year) || parseFloat(r.recovery_ob) || 0).replace(/₹/g, 'Rs.')
+    fmtCur(parseFloat(r.recovery_ob) || 0).replace(/₹\s?|Rs\.\s?/g, '').trim(),
+    fmtCur(parseFloat(r.recovered_curr_year) || 0).replace(/₹\s?|Rs\.\s?/g, '').trim(),
+    fmtCur(parseFloat(r.pending_curr_year) || parseFloat(r.recovery_ob) || 0).replace(/₹\s?|Rs\.\s?/g, '').trim()
   ]);
   generateDataPdf(
     `Pending RRC List — ${_currentEoFilterName}`,
@@ -1023,6 +1985,11 @@ function updateGlobalMetrics() {
   document.getElementById('metricTotalRecovered').textContent = fmtCur(totalPaid);
   document.getElementById('metricTotalPending').textContent = fmtCur(totalPending);
   document.getElementById('metricFullyRecoveredCount').textContent = frCount.toLocaleString();
+
+  // Refresh dashboard EO cards & Month-wise matrix
+  populateEoFyOptions();
+  renderEoPerformanceCards();
+  renderEoMonthlyMatrixCard();
 }
 
 function showSaveStatus(msg, color) {
@@ -2041,7 +3008,7 @@ async function saveReceiptEntry(rowId, editingGKey = null) {
 async function deleteReceiptGroup(gKey, rowId) {
   if (!confirm('Are you sure you want to delete this payment receipt record?')) return;
 
-  showSaveStatus('⏳ Deleting receipt...', 'var(--warning)');
+  showSaveStatus('⏳ Deleting receipt from database...', 'var(--warning)');
 
   const targetRow = appData.master.find(r => r.id === rowId);
   const targetEstCode = targetRow ? cleanStr(targetRow.est_code) : '';
@@ -2049,29 +3016,32 @@ async function deleteReceiptGroup(gKey, rowId) {
 
   // 1. Identify all matching receipt log records in appData.recoveryLog
   let toDelete = appData.recoveryLog.filter(l => {
+    const estC = cleanStr(l.est_code);
+    const t = cleanStr(l.type);
+    const matchesCert = (!targetEstCode || estC === targetEstCode) && (!targetType || t === targetType);
+    if (!matchesCert) return false;
+
     if (l.txn_id && l.txn_id === gKey) return true;
 
     const lDt = l.date ? String(l.date).slice(0, 10) : '';
     const lRcpt = cleanStr(l.receipt_no);
-    const estC = cleanStr(l.est_code);
-    const t = cleanStr(l.type);
+    const lKey = l.txn_id || `${lDt}___${lRcpt}`;
 
-    const matchesKey = (l.txn_id === gKey) ||
-                       (`${l.date}___${l.receipt_no || ''}` === gKey) ||
-                       (`${lDt}___${lRcpt}` === gKey) ||
-                       (gKey.includes(lDt) && lRcpt && gKey.includes(lRcpt));
+    if (lKey === gKey) return true;
+    if (gKey === `${l.date}___${l.receipt_no || ''}`) return true;
+    if (lDt && gKey.includes(lDt) && lRcpt && gKey.includes(lRcpt)) return true;
 
-    const matchesCert = (estC === targetEstCode) && (t === targetType);
-    return matchesKey && matchesCert;
+    return false;
   });
 
-  // Fallback: If no match with cert check, try global key match
+  // Fallback match if cert filtering was too strict
   if (toDelete.length === 0) {
     toDelete = appData.recoveryLog.filter(l => {
       if (l.txn_id && l.txn_id === gKey) return true;
       const lDt = l.date ? String(l.date).slice(0, 10) : '';
       const lRcpt = cleanStr(l.receipt_no);
-      return (`${l.date}___${l.receipt_no || ''}` === gKey) || (`${lDt}___${lRcpt}` === gKey) || (gKey.includes(lDt) && lRcpt && gKey.includes(lRcpt));
+      const lKey = l.txn_id || `${lDt}___${lRcpt}`;
+      return (lKey === gKey) || (gKey === `${l.date}___${l.receipt_no || ''}`) || (lDt && gKey.includes(lDt) && lRcpt && gKey.includes(lRcpt));
     });
   }
 
@@ -2081,38 +3051,56 @@ async function deleteReceiptGroup(gKey, rowId) {
     return;
   }
 
-  // 2. Remove from local memory state
-  const deleteIds = toDelete.map(l => l.id).filter(Boolean);
+  // 2. Extract numeric IDs & txn IDs for deletion
+  const deleteIds = Array.from(new Set(toDelete.map(l => parseInt(l.id, 10)).filter(id => !isNaN(id) && id > 0)));
   const deleteTxnIds = Array.from(new Set(toDelete.map(l => l.txn_id).filter(Boolean)));
   const toDeleteSet = new Set(toDelete);
 
-  appData.recoveryLog = appData.recoveryLog.filter(l => !toDeleteSet.has(l) && (!l.id || !deleteIds.includes(l.id)));
+  // Remove from local memory state
+  appData.recoveryLog = appData.recoveryLog.filter(l => {
+    if (toDeleteSet.has(l)) return false;
+    if (l.id && deleteIds.includes(parseInt(l.id, 10))) return false;
+    if (l.txn_id && deleteTxnIds.includes(l.txn_id)) return false;
+    return true;
+  });
 
-  // 3. Perform Supabase deletion for ALL matched rows with triple failsafe
+  // 3. Execute Supabase deletion operations
+  let dbDeleteSuccess = false;
+
+  // Try 1: Delete by transaction IDs
   if (deleteTxnIds.length > 0) {
     for (const tId of deleteTxnIds) {
       const { error } = await supabaseClient.from('recovery_log').delete().eq('txn_id', tId);
-      if (error) console.error('Supabase txn_id delete error:', error);
+      if (error) console.error('Supabase delete by txn_id error:', error.message);
+      else dbDeleteSuccess = true;
     }
   }
 
+  // Try 2: Delete by integer primary key IDs
   if (deleteIds.length > 0) {
     const { error } = await supabaseClient.from('recovery_log').delete().in('id', deleteIds);
-    if (error) console.error('Supabase ID array delete error:', error);
+    if (error) console.error('Supabase delete by id array error:', error.message);
+    else dbDeleteSuccess = true;
   }
 
-  // Fallback deletion matching properties in Supabase
-  if (toDelete.length > 0) {
+  // Try 3: Property criteria fallback for items missing ID & txn_id
+  if (!dbDeleteSuccess && toDelete.length > 0) {
     for (const item of toDelete) {
-      let q = supabaseClient.from('recovery_log').delete()
-        .eq('est_code', cleanStr(item.est_code))
-        .eq('type', cleanStr(item.type));
+      if (item.id) {
+        await supabaseClient.from('recovery_log').delete().eq('id', parseInt(item.id, 10));
+      } else {
+        const itemDt = item.date ? String(item.date).slice(0, 10) : '';
+        let q = supabaseClient.from('recovery_log').delete()
+          .eq('est_code', cleanStr(item.est_code))
+          .eq('type', cleanStr(item.type))
+          .eq('account', cleanStr(item.account));
 
-      if (item.receipt_no) q = q.eq('receipt_no', cleanStr(item.receipt_no));
-      if (item.account) q = q.eq('account', cleanStr(item.account));
+        if (item.receipt_no) q = q.eq('receipt_no', cleanStr(item.receipt_no));
+        if (itemDt) q = q.eq('date', itemDt);
 
-      const { error } = await q;
-      if (error) console.error('Supabase fallback property delete error:', error);
+        const { error } = await q;
+        if (error) console.error('Supabase property fallback delete error:', error.message);
+      }
     }
   }
 
@@ -2705,11 +3693,11 @@ function generateReportPdf(reportTitle, reportSubhead, containerId, orientation 
   });
   headRows.push(headers);
 
-  const trs = Array.from(tableEl.querySelectorAll('tbody tr'));
+  const trs = Array.from(tableEl.querySelectorAll('tbody tr, tfoot tr'));
   trs.forEach(tr => {
     const cells = Array.from(tr.children).map(td => {
       let txt = td.textContent.trim();
-      return txt.replace(/₹\s?/g, 'Rs. ');
+      return txt.replace(/₹\s?|Rs\.\s?/g, '').trim();
     });
     if (tr.classList.contains('total-row')) {
       footRows.push(cells);
@@ -2805,6 +3793,11 @@ function generateDataPdf(reportTitle, reportSubhead, headers, bodyRows, orientat
   const doc = new jsPDF({ orientation, unit: 'mm', format: 'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();
 
+  // Clean currency symbols from body row cells (keep headers untouched)
+  const cleanBodyRows = bodyRows.map(row => 
+    row.map(cell => typeof cell === 'string' ? cell.replace(/₹\s?|Rs\.\s?/g, '').trim() : cell)
+  );
+
   // Header banner
   doc.setFillColor(30, 30, 45);
   doc.rect(0, 0, pageWidth, 24, 'F');
@@ -2844,7 +3837,7 @@ function generateDataPdf(reportTitle, reportSubhead, headers, bodyRows, orientat
 
   doc.autoTable({
     head: [headers],
-    body: bodyRows,
+    body: cleanBodyRows,
     startY: 40,
     margin: { top: 40, left: 10, right: 10, bottom: 14 },
     styles: { font: 'helvetica', fontSize: 7, cellPadding: 1.8, lineColor: [220, 224, 230], lineWidth: 0.1, overflow: 'linebreak' },
@@ -2883,9 +3876,9 @@ function exportDefaultersPdf() {
   const rows = _defaultersRecords.map((r, i) => [
     i + 1, cleanStr(r.est_code), cleanStr(r.est_name), cleanStr(r.type),
     cleanStr(r.rrc_no), cleanStr(r.period) || '-', cleanStr(r.district) || 'N/A',
-    fmtCur(parseFloat(r.recovery_ob) || 0).replace(/₹/g, 'Rs.'),
-    fmtCur(parseFloat(r.recovered_curr_year) || 0).replace(/₹/g, 'Rs.'),
-    fmtCur(parseFloat(r.pending_curr_year) || parseFloat(r.recovery_ob) || 0).replace(/₹/g, 'Rs.')
+    fmtCur(parseFloat(r.recovery_ob) || 0).replace(/₹\s?|Rs\.\s?/g, '').trim(),
+    fmtCur(parseFloat(r.recovered_curr_year) || 0).replace(/₹\s?|Rs\.\s?/g, '').trim(),
+    fmtCur(parseFloat(r.pending_curr_year) || parseFloat(r.recovery_ob) || 0).replace(/₹\s?|Rs\.\s?/g, '').trim()
   ]);
   generateDataPdf('Top Defaulters Watchlist Report', `${rows.length} Establishments — Sorted by ${sortLabel} (${_defaultersSortAsc ? 'Ascending' : 'Descending'})`, headers, rows);
 }
@@ -3239,6 +4232,9 @@ function _sortDefaultersDataset() {
     } else if (_defaultersSortKey === 'total_dues') {
       valA = parseFloat(a.recovery_ob) || 0;
       valB = parseFloat(b.recovery_ob) || 0;
+    } else if (_defaultersSortKey === 'recovered') {
+      valA = parseFloat(a.recovered_curr_year) || 0;
+      valB = parseFloat(b.recovered_curr_year) || 0;
     } else if (_defaultersSortKey === 'est_name') {
       valA = cleanStr(a.est_name);
       valB = cleanStr(b.est_name);
@@ -3283,7 +4279,7 @@ function sortDefaultersBy(key) {
     _defaultersSortAsc = !_defaultersSortAsc;
   } else {
     _defaultersSortKey = key;
-    _defaultersSortAsc = (key === 'pending' || key === 'total_dues') ? false : true;
+    _defaultersSortAsc = (key === 'pending' || key === 'total_dues' || key === 'recovered') ? false : true;
   }
   _sortDefaultersDataset();
   renderDefaultersPage(1);
@@ -3313,12 +4309,14 @@ function renderDefaultersPage(page) {
     ${makeSortableTh('Period', 'period', _defaultersSortKey, _defaultersSortAsc, 'sortDefaultersBy')}
     ${makeSortableTh('District', 'district', _defaultersSortKey, _defaultersSortAsc, 'sortDefaultersBy')}
     ${makeSortableTh('Total Dues OB (₹)', 'total_dues', _defaultersSortKey, _defaultersSortAsc, 'sortDefaultersBy', 'text-end')}
+    ${makeSortableTh('Total Payment Received (₹)', 'recovered', _defaultersSortKey, _defaultersSortAsc, 'sortDefaultersBy', 'text-end')}
     ${makeSortableTh('Pending Amount (₹)', 'pending', _defaultersSortKey, _defaultersSortAsc, 'sortDefaultersBy', 'text-end')}
     <th class="text-center">Action</th>
   </tr></thead><tbody>`;
 
   pageRecs.forEach((r, i) => {
     const ob = parseFloat(r.recovery_ob) || 0;
+    const rec = parseFloat(r.recovered_curr_year) || 0;
     const pend = parseFloat(r.pending_curr_year) || ob;
     const code = cleanStr(r.est_code);
     const typeStr = cleanStr(r.type);
@@ -3334,6 +4332,7 @@ function renderDefaultersPage(page) {
         <td style="font-size:11px;color:var(--text-secondary);">${cleanStr(r.period) || '-'}</td>
         <td>${cleanStr(r.district) || 'N/A'}</td>
         <td class="text-end">${fmtCur(ob)}</td>
+        <td class="text-end val-recovered" style="color:var(--success);font-weight:700;">${fmtCur(rec)}</td>
         <td class="text-end val-pending">${fmtCur(pend)}</td>
         <td class="text-center">
           <button class="sidebar-btn btn-success" style="width:auto;margin:0;padding:4px 10px;font-size:10px;border-radius:6px;" onclick="event.stopPropagation(); quickOpenEstablishment('${code}',${r.id},'${typeStr}')">
@@ -3349,12 +4348,12 @@ function renderDefaultersPage(page) {
 }
 
 function exportDefaultersCsv() {
-  const labelMap = { pending: 'Pending Amount', total_dues: 'Total Dues OB', est_name: 'Establishment Name', est_code: 'EST Code', type: 'Type', rrc_no: 'RRC No', period: 'Period', district: 'District' };
+  const labelMap = { pending: 'Pending Amount', total_dues: 'Total Dues OB', recovered: 'Total Payment Received', est_name: 'Establishment Name', est_code: 'EST Code', type: 'Type', rrc_no: 'RRC No', period: 'Period', district: 'District' };
   const sortLabel = labelMap[_defaultersSortKey] || _defaultersSortKey;
   let csv = `Top Defaulters Watchlist — Sorted by ${sortLabel} (${_defaultersSortAsc ? 'Ascending' : 'Descending'})\n`;
-  csv += 'Rank,EST Code,EST Name,Type,RRC No,Period,District,Total Dues OB,Pending Amount\n';
+  csv += 'Rank,EST Code,EST Name,Type,RRC No,Period,District,Total Dues OB,Total Payment Received,Pending Amount\n';
   _defaultersRecords.forEach((r, idx) => {
-    csv += `${idx + 1},"${cleanStr(r.est_code)}","${cleanStr(r.est_name)}","${cleanStr(r.type)}","${cleanStr(r.rrc_no)}","${cleanStr(r.period) || ''}","${cleanStr(r.district)}",${r.recovery_ob || 0},${r.pending_curr_year || 0}\n`;
+    csv += `${idx + 1},"${cleanStr(r.est_code)}","${cleanStr(r.est_name)}","${cleanStr(r.type)}","${cleanStr(r.rrc_no)}","${cleanStr(r.period) || ''}","${cleanStr(r.district)}",${r.recovery_ob || 0},${r.recovered_curr_year || 0},${r.pending_curr_year || 0}\n`;
   });
   downloadCsvFile(csv, 'Top_Defaulters_Watchlist.csv');
 }
@@ -3831,9 +4830,9 @@ function exportAgeingYearPdf() {
     i + 1, cleanStr(r.est_code), cleanStr(r.est_name), cleanStr(r.type),
     cleanStr(r.rrc_no), cleanStr(r.period) || '-', cleanStr(r.district) || 'N/A',
     cleanStr(r.enforcement_officer) || 'Unassigned',
-    fmtCur(parseFloat(r.recovery_ob) || 0).replace(/₹/g, 'Rs.'),
-    fmtCur(parseFloat(r.recovered_curr_year) || 0).replace(/₹/g, 'Rs.'),
-    fmtCur(parseFloat(r.pending_curr_year) || parseFloat(r.recovery_ob) || 0).replace(/₹/g, 'Rs.')
+    fmtCur(parseFloat(r.recovery_ob) || 0).replace(/₹\s?|Rs\.\s?/g, '').trim(),
+    fmtCur(parseFloat(r.recovered_curr_year) || 0).replace(/₹\s?|Rs\.\s?/g, '').trim(),
+    fmtCur(parseFloat(r.pending_curr_year) || parseFloat(r.recovery_ob) || 0).replace(/₹\s?|Rs\.\s?/g, '').trim()
   ]);
   generateDataPdf(
     `RRC Certificates — Issued Year ${_currentAgeingYear}`,

@@ -131,7 +131,7 @@
       </div>
       <div style="display: flex; align-items: center; gap: 10px;">
         <span id="appVersionBadge" style="background: rgba(108, 92, 231, 0.15); color: var(--accent); padding: 6px 14px; border-radius: 20px; font-size: 11px; font-weight: 700; border: 1px solid rgba(108, 92, 231, 0.3); cursor: pointer;" onclick="showVersionHistoryModal()" title="Click to view Version Release Changelog">
-          <i class="fas fa-code-branch me-1"></i> Version v2.9.1
+          <i class="fas fa-code-branch me-1"></i> Version v3.1.0
         </span>
         <span id="syncStatusBadge" style="background: var(--success-soft); color: var(--success); padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 600;">
           <i class="fas fa-database me-1"></i> Supabase Connected
@@ -209,6 +209,32 @@
         </div>
         <div class="eo-cards-grid" id="eoCardsGrid">
           <!-- Dynamic EO Cards rendered by app.js -->
+        </div>
+      </div>
+
+      <!-- ENFORCEMENT OFFICERS (EO) MONTH-WISE RECOVERY MATRIX CARD SECTION -->
+      <div class="eo-section" style="margin-top: 24px;">
+        <div class="eo-section-header">
+          <div>
+            <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: var(--text-primary);">
+              <i class="fas fa-calendar-check me-2" style="color: var(--success);"></i> Enforcement Officers (EO) Month-Wise Recovery Matrix (Apr – Mar)
+            </h3>
+            <span style="font-size: 12px; color: var(--text-secondary);">Month-by-month recovery amounts collected per Enforcement Officer for the financial year</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <select id="eoFySelect" class="custom-select" style="margin: 0; width: 185px; padding: 6px 12px;" onchange="renderEoMonthlyMatrixCard()">
+              <option value="2026-2027" selected>FY 2026–27 (Apr–Mar)</option>
+              <option value="2025-2026">FY 2025–26 (Apr–Mar)</option>
+              <option value="2024-2025">FY 2024–25 (Apr–Mar)</option>
+              <option value="ALL">All Financial Years</option>
+            </select>
+            <button class="sidebar-btn btn-outline" style="width: auto; margin: 0; padding: 6px 14px; font-size: 12px;" onclick="exportEoMatrixCsv()">
+              <i class="fas fa-file-csv me-1"></i> Export CSV
+            </button>
+          </div>
+        </div>
+        <div class="eo-card" style="padding: 16px; overflow-x: auto;" id="eoMonthlyMatrixContainer">
+          <!-- Dynamic Month-Wise Matrix Table rendered by app.js -->
         </div>
       </div>
 
@@ -503,6 +529,34 @@
   </div>
 </div>
 
+<!-- MODAL: EO MONTHLY DATE-WISE COLLECTIONS DETAILS -->
+<div class="modal-overlay" id="eoMonthDetailsModal" style="z-index: 1150;">
+  <div class="modal-container" style="max-width: 98%; width: 98%;">
+    <div class="modal-header">
+      <div>
+        <h3 style="margin: 0;" id="eoMonthDetailsTitle">
+          <i class="fas fa-receipt me-2" style="color: var(--success);"></i> Date-Wise Payment Receipts
+        </h3>
+        <span style="font-size: 14px; color: var(--text-secondary);" id="eoMonthDetailsSubtitle">
+          Account-wise and date-wise collection details for Enforcement Officer
+        </span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <button class="sidebar-btn btn-outline" style="width: auto; margin: 0; padding: 6px 14px;" onclick="exportEoMonthDetailsCsv()">
+          <i class="fas fa-file-csv me-1"></i> Export CSV
+        </button>
+        <button class="sidebar-btn" style="width: auto; margin: 0; padding: 6px 14px; background: linear-gradient(135deg, #e74c3c, #c0392b); color: #fff; border: none; font-weight: 700; border-radius: 8px; box-shadow: 0 4px 10px rgba(231,76,60,0.4);" onclick="exportEoMonthDetailsPdf()">
+          <i class="fas fa-file-pdf me-1"></i> Export PDF
+        </button>
+        <button class="modal-close-btn" onclick="closeModal('eoMonthDetailsModal')">&times;</button>
+      </div>
+    </div>
+    <div class="modal-body" id="eoMonthDetailsModalBody">
+      <!-- Dynamic Date-Wise Collections Content -->
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: EO RRC FILTER LIST -->
 <div class="modal-overlay" id="eoRrcFilterModal">
   <div class="modal-container">
@@ -687,7 +741,7 @@
 </div>
 
 <!-- App Controller Script -->
-<script src="js/app.js?v=2.9.1"></script>
+<script src="js/app.js?v=3.1.0"></script>
 
 </body>
 </html>
