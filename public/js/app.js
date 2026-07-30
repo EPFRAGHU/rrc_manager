@@ -33,9 +33,18 @@ function cleanStr(val) {
   return s === 'nan' ? '' : s;
 }
 
-const APP_VERSION = 'v3.2.2';
+const APP_VERSION = 'v3.2.3';
 
 const APP_RELEASE_LOG = [
+  {
+    version: 'v3.2.3',
+    date: '2026-07-30',
+    title: 'EO-Wise Summary Cards & Enforcement Officer Column in Monthly Recovery Breakdown Popup',
+    changes: [
+      'Added EO-wise recovery summary cards at the top of the date-wise payment breakdown modal showing recovery totals per Enforcement Officer.',
+      'Added Enforcement Officer (EO) column with interactive header sorting to display assigned EO for every establishment receipt row.'
+    ]
+  },
   {
     version: 'v3.2.2',
     date: '2026-07-30',
@@ -1422,6 +1431,7 @@ function showEoMonthDetailsModal(eoName, targetYm, periodLabel) {
       date: displayDt,
       estCode,
       estName,
+      eoName: cleanStr(masterMatch ? masterMatch.enforcement_officer : '') || 'UNASSIGNED',
       type: typeStr,
       receiptNo: rcpt,
       totalDues,
@@ -1469,6 +1479,8 @@ function renderEoMonthDetailsTable() {
       return a.estCode.localeCompare(b.estCode) * mult;
     } else if (col === 'estName') {
       return a.estName.localeCompare(b.estName) * mult;
+    } else if (col === 'eoName') {
+      return a.eoName.localeCompare(b.eoName) * mult;
     } else if (col === 'type') {
       const typeRank = { '7A': 1, '7Q': 2, '14B': 3, '7B': 4 };
       const rA = typeRank[a.type] || 99;
@@ -1495,6 +1507,42 @@ function renderEoMonthDetailsTable() {
       : '<i class="fas fa-sort-amount-up ms-1" style="color: var(--accent); font-size: 11px;"></i>';
   };
 
+  // Build EO-wise summary breakdown map
+  let eoSummary = {};
+  records.forEach(r => {
+    const eo = r.eoName || 'UNASSIGNED';
+    if (!eoSummary[eo]) eoSummary[eo] = { count: 0, totalPaid: 0 };
+    eoSummary[eo].count++;
+    eoSummary[eo].totalPaid += r.totalPaid;
+  });
+
+  const sortedEoKeys = Object.keys(eoSummary).sort();
+  let eoPillsHtml = '';
+  sortedEoKeys.forEach(eoKey => {
+    const eoData = eoSummary[eoKey];
+    eoPillsHtml += `
+      <div style="background: var(--bg-card-alt); border-radius: 8px; padding: 8px 14px; border: 1px solid var(--border-color); border-left: 3px solid var(--warning); display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 210px; flex: 1;">
+        <div>
+          <strong style="font-size: 11.5px; color: var(--text-primary);"><i class="fas fa-user-shield me-1" style="color: var(--warning); font-size: 10px;"></i> ${eoKey}</strong>
+          <span style="display: block; font-size: 10px; color: var(--text-secondary);">${eoData.count} Receipt${eoData.count !== 1 ? 's' : ''}</span>
+        </div>
+        <strong style="font-size: 13px; color: var(--success);">₹${fmtCur(eoData.totalPaid)}</strong>
+      </div>
+    `;
+  });
+
+  const topEoSummaryBar = sortedEoKeys.length > 1 ? `
+    <div style="margin-bottom: 14px; padding: 12px 14px; background: rgba(108, 92, 231, 0.05); border-radius: 10px; border: 1px solid rgba(108, 92, 231, 0.15);">
+      <div style="font-size: 11px; font-weight: 700; color: var(--accent); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; justify-content: space-between;">
+        <span><i class="fas fa-users me-1"></i> Enforcement Officer Recovery Breakdown (${sortedEoKeys.length} Officers)</span>
+        <span style="font-size: 10px; font-weight: 600; color: var(--text-secondary);">Total Receipts: ${records.length}</span>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+        ${eoPillsHtml}
+      </div>
+    </div>
+  ` : '';
+
   let rowsHtml = '';
   records.forEach((r, idx) => {
     const safeCode = r.estCode.replace(/'/g, "\\'");
@@ -1516,6 +1564,7 @@ function renderEoMonthDetailsTable() {
         <td style="padding: 5px 4px; white-space: nowrap;"><strong>${r.date}</strong></td>
         <td style="padding: 5px 4px; white-space: nowrap;"><span class="badge" style="background: rgba(0, 206, 201, 0.15); color: #00cec9; border: 1px solid rgba(0, 206, 201, 0.35); font-size: 13.5px; font-weight: 800; font-family: monospace; padding: 4px 9px; border-radius: 6px; display: inline-block;">${r.estCode}</span></td>
         <td style="padding: 5px 4px; width: 160px; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${r.estName}"><strong style="color:var(--text-primary); font-size:12px;">${r.estName}</strong>${statusBadgeHtml}</td>
+        <td style="padding: 5px 4px; width: 145px; max-width: 145px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${r.eoName}"><strong style="color:var(--text-secondary); font-size:11.5px;"><i class="fas fa-user-shield me-1" style="font-size: 10px; color: var(--warning);"></i> ${r.eoName}</strong></td>
         <td class="text-center" style="padding: 5px 3px;"><span class="type-badge" style="font-size:10px; padding: 2px 5px;">${r.type}</span></td>
         <td style="padding: 5px 4px; white-space: nowrap;"><strong>${r.receiptNo}</strong></td>
         <td class="text-end" style="padding: 5px 5px; background: rgba(108, 92, 231, 0.05); font-weight: 700; color: var(--accent);">${r.totalDues > 0 ? fmtCur(r.totalDues) : '-'}</td>
@@ -1539,14 +1588,16 @@ function renderEoMonthDetailsTable() {
   const totals = _currentEoMonthDetails.totals || {};
 
   let html = `
-    <div style="max-height: 540px; overflow-y: auto; overflow-x: hidden; width: 100%;">
+    ${topEoSummaryBar}
+    <div style="max-height: 520px; overflow-y: auto; overflow-x: hidden; width: 100%;">
       <table class="ledger-table table-hover align-middle mb-0" id="eoMonthDetailsTable" style="width: 100%; table-layout: auto; font-size: 11px;">
         <thead style="position: sticky; top: 0; z-index: 10; background: var(--bg-card-alt); font-size: 11px;">
           <tr>
             <th class="text-center" style="width: 28px; padding: 6px 3px;">#</th>
-            <th style="width: 95px; padding: 6px 4px; white-space: nowrap; cursor: pointer;" onclick="sortEoMonthDetails('date')" title="Click to sort Payment Date chronologically (Newest to Oldest / Oldest to Newest)">Payment Date ${getSortIcon('date')}</th>
+            <th style="width: 95px; padding: 6px 4px; white-space: nowrap; cursor: pointer;" onclick="sortEoMonthDetails('date')" title="Click to sort Payment Date chronologically">Payment Date ${getSortIcon('date')}</th>
             <th style="width: 105px; padding: 6px 4px; cursor: pointer;" onclick="sortEoMonthDetails('estCode')" title="Click to sort by EST Code">EST Code ${getSortIcon('estCode')}</th>
             <th style="width: 160px; max-width: 160px; padding: 6px 4px; cursor: pointer;" onclick="sortEoMonthDetails('estName')" title="Click to sort by Establishment Name">Establishment Name ${getSortIcon('estName')}</th>
+            <th style="width: 145px; max-width: 145px; padding: 6px 4px; cursor: pointer;" onclick="sortEoMonthDetails('eoName')" title="Click to sort by Enforcement Officer">Enforcement Officer (EO) ${getSortIcon('eoName')}</th>
             <th class="text-center" style="width: 42px; padding: 6px 3px; cursor: pointer;" onclick="sortEoMonthDetails('type')" title="Click to sort by Type">Type ${getSortIcon('type')}</th>
             <th style="width: 80px; padding: 6px 4px; cursor: pointer;" onclick="sortEoMonthDetails('receiptNo')" title="Click to sort by Receipt No">Receipt No ${getSortIcon('receiptNo')}</th>
             <th class="text-end" style="width: 90px; padding: 6px 5px; background: rgba(108, 92, 231, 0.08); color: var(--accent); cursor: pointer;" onclick="sortEoMonthDetails('totalDues')" title="Click to sort by Total Dues">Total Dues OB (₹) ${getSortIcon('totalDues')}</th>
@@ -1564,7 +1615,7 @@ function renderEoMonthDetailsTable() {
         <tbody>
           ${rowsHtml}
           <tr class="total-row" style="font-weight: 700; background: var(--bg-card-alt); position: sticky; bottom: 0; z-index: 5; font-size: 11.5px;">
-            <td colspan="6" class="text-start" style="padding: 6px 8px;"><i class="fas fa-calculator me-1" style="color: var(--success);"></i> TOTAL COLLECTIONS (${records.length} Receipts)</td>
+            <td colspan="7" class="text-start" style="padding: 6px 8px;"><i class="fas fa-calculator me-1" style="color: var(--success);"></i> TOTAL COLLECTIONS (${records.length} Receipts across ${sortedEoKeys.length} EOs)</td>
             <td class="text-end" style="padding: 6px 5px; color: var(--accent);">${totals.grandTotalDues > 0 ? fmtCur(totals.grandTotalDues) : '-'}</td>
             <td class="text-end" style="padding: 6px 5px; color: #d35400; background: rgba(241, 196, 15, 0.12);">${totals.grandOpeningPending > 0 ? fmtCur(totals.grandOpeningPending) : '-'}</td>
             <td class="text-end" style="padding: 6px 4px;">${totals.totalAcc['1'] > 0 ? fmtCur(totals.totalAcc['1']) : '-'}</td>
@@ -1590,13 +1641,13 @@ function exportEoMonthDetailsCsv() {
   }
 
   let csv = `Enforcement Officer: ${_currentEoMonthDetails.eoName} — ${_currentEoMonthDetails.periodLabel}\n`;
-  csv += 'Rank,Payment Date,EST Code,Establishment Name,Type,Receipt No,Total Dues OB,Opening Pending,Acc 1,Acc 2,Acc 10,Acc 21,Acc 22,Total Paid,Closing Pending,Status\n';
+  csv += 'Rank,Payment Date,EST Code,Establishment Name,Enforcement Officer (EO),Type,Receipt No,Total Dues OB,Opening Pending,Acc 1,Acc 2,Acc 10,Acc 21,Acc 22,Total Paid,Closing Pending,Status\n';
 
   let dues = 0, openPend = 0, acc1 = 0, acc2 = 0, acc10 = 0, acc21 = 0, acc22 = 0, tot = 0, closePend = 0;
 
   _currentEoMonthDetails.records.forEach(r => {
     const statusStr = r.isFullyRecovered ? 'Fully Recovered' : 'Pending';
-    csv += `${r.idx},"${r.date}","${r.estCode}","${r.estName}","${r.type}","${r.receiptNo}",${r.totalDues},${r.openingPending},${r.acc1},${r.acc2},${r.acc10},${r.acc21},${r.acc22},${r.totalPaid},${r.closingPending},"${statusStr}"\n`;
+    csv += `${r.idx},"${r.date}","${r.estCode}","${r.estName}","${r.eoName}","${r.type}","${r.receiptNo}",${r.totalDues},${r.openingPending},${r.acc1},${r.acc2},${r.acc10},${r.acc21},${r.acc22},${r.totalPaid},${r.closingPending},"${statusStr}"\n`;
     dues += r.totalDues;
     openPend += r.openingPending;
     acc1 += r.acc1;
