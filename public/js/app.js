@@ -33,9 +33,18 @@ function cleanStr(val) {
   return s === 'nan' ? '' : s;
 }
 
-const APP_VERSION = 'v3.2.1';
+const APP_VERSION = 'v3.2.2';
 
 const APP_RELEASE_LOG = [
+  {
+    version: 'v3.2.2',
+    date: '2026-07-30',
+    title: 'EO Recovery Matrix Render Scope Fix & Variable Safety Guard',
+    changes: [
+      'Fixed missing rowFyLabel variable declaration in renderEoMonthlyMatrixCard that caused ReferenceError crash on card render.',
+      'Restored full visibility and rendering of the month-wise recovery matrix across all financial year filters.'
+    ]
+  },
   {
     version: 'v3.2.1',
     date: '2026-07-30',
@@ -1064,6 +1073,7 @@ function renderEoMonthlyMatrixCard() {
   allEos.forEach((eo, idx) => {
     const rowTot = eoTotal[eo] || 0;
     const safeEo = eo.replace(/'/g, "\\'");
+    const rowFyLabel = selectedFy === 'ALL' ? 'All Financial Years' : `FY ${selectedFy}`;
 
     html += `
       <tr style="cursor: pointer;" onclick="filterByEo('${safeEo}')" title="Click to view pending RRC list for ${eo}">
