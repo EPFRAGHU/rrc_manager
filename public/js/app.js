@@ -33,9 +33,19 @@ function cleanStr(val) {
   return s === 'nan' ? '' : s;
 }
 
-const APP_VERSION = 'v3.2.3';
+const APP_VERSION = 'v3.2.4';
 
 const APP_RELEASE_LOG = [
+  {
+    version: 'v3.2.4',
+    date: '2026-07-30',
+    title: 'PDF Total Row Single-Print & Precision Font/Colspan Formatting Engine',
+    changes: [
+      'Configured showFoot: lastPage in PDF autoTable generation so the total row prints ONLY ONCE at the end of the report.',
+      'Added colSpan cell alignment parsing to prevent month column shifting and text overlap in wide matrix PDF exports.',
+      'Added Export PDF button for Enforcement Officers Month-Wise Recovery Matrix Card.'
+    ]
+  },
   {
     version: 'v3.2.3',
     date: '2026-07-30',
@@ -2127,6 +2137,19 @@ function exportEoMatrixCsv() {
   downloadCsvFile(csv, `EO_Month_Wise_Recovery_Matrix_${selectedFy}.csv`);
 }
 
+function exportEoMatrixPdf() {
+  const fySelect = document.getElementById('eoFySelect');
+  const selectedFy = (fySelect && fySelect.value && fySelect.value !== '') ? fySelect.value : '2026-2027';
+  const labelFy = selectedFy === 'ALL' ? 'All Financial Years' : `FY ${selectedFy}`;
+
+  generateReportPdf(
+    `Enforcement Officers (EO) Month-Wise Recovery Matrix (${labelFy})`,
+    `Month-by-month recovery amounts collected per Enforcement Officer for ${labelFy}`,
+    'eoMonthlyMatrixContainer',
+    'landscape'
+  );
+}
+
 // -----------------------------------------------------------------------
 // Shared Pagination Helper
 // -----------------------------------------------------------------------
@@ -4211,11 +4234,18 @@ function generateReportPdf(reportTitle, reportSubhead, containerId, orientation 
 
   const trs = Array.from(tableEl.querySelectorAll('tbody tr, tfoot tr'));
   trs.forEach(tr => {
-    const cells = Array.from(tr.children).map(td => {
-      let txt = td.textContent.trim();
-      return txt.replace(/₹\s?|Rs\.\s?/g, '').trim();
+    const isTotalRow = tr.classList.contains('total-row');
+    const cells = [];
+    Array.from(tr.children).forEach(td => {
+      let txt = td.textContent.trim().replace(/₹\s?|Rs\.\s?/g, '').trim();
+      const colSpan = parseInt(td.getAttribute('colspan') || '1', 10);
+      if (colSpan > 1) {
+        cells.push({ content: txt, colSpan: colSpan, styles: { halign: 'left', fontStyle: 'bold' } });
+      } else {
+        cells.push(txt);
+      }
     });
-    if (tr.classList.contains('total-row')) {
+    if (isTotalRow) {
       footRows.push(cells);
     } else {
       bodyRows.push(cells);
@@ -4226,25 +4256,28 @@ function generateReportPdf(reportTitle, reportSubhead, containerId, orientation 
   const colStyles = {};
   headers.forEach((h, idx) => {
     const txt = h.toLowerCase();
-    if (txt.includes('amount') || txt.includes('due') || txt.includes('paid') || txt.includes('ob') || txt.includes('pending') || txt.includes('rs') || txt.includes('recovered') || txt.includes('rupees') || txt.includes('%') || txt.includes('acc')) {
+    if (txt.includes('amount') || txt.includes('due') || txt.includes('paid') || txt.includes('ob') || txt.includes('pending') || txt.includes('rs') || txt.includes('recovered') || txt.includes('rupees') || txt.includes('%') || txt.includes('acc') || txt.includes('total') || txt.includes('april') || txt.includes('may') || txt.includes('june') || txt.includes('july') || txt.includes('august') || txt.includes('september') || txt.includes('october') || txt.includes('november') || txt.includes('december') || txt.includes('january') || txt.includes('february') || txt.includes('march')) {
       colStyles[idx] = { halign: 'right', fontStyle: 'bold', overflow: 'linebreak' };
-    } else if (txt.includes('sl') || txt.includes('rank') || txt.includes('type') || txt.includes('rrcs') || txt.includes('count') || txt.includes('vintage')) {
+    } else if (txt.includes('sl') || txt.includes('rank') || txt.includes('type') || txt.includes('rrcs') || txt.includes('count') || txt.includes('vintage') || txt === '#') {
       colStyles[idx] = { halign: 'center' };
     } else {
       colStyles[idx] = { halign: 'left', overflow: 'linebreak' };
     }
   });
 
+  const isWideTable = headers.length > 10;
+
   doc.autoTable({
     head: headRows,
     body: bodyRows,
     foot: footRows.length > 0 ? footRows : undefined,
+    showFoot: 'lastPage',
     startY: 40,
-    margin: { top: 40, left: 10, right: 10, bottom: 14 },
+    margin: { top: 40, left: 8, right: 8, bottom: 14 },
     styles: {
       font: 'helvetica',
-      fontSize: 7,
-      cellPadding: 1.8,
+      fontSize: isWideTable ? 6 : 7,
+      cellPadding: isWideTable ? 1.2 : 1.8,
       lineColor: [220, 224, 230],
       lineWidth: 0.1,
       overflow: 'linebreak'
@@ -4253,14 +4286,14 @@ function generateReportPdf(reportTitle, reportSubhead, containerId, orientation 
       fillColor: [30, 30, 45],
       textColor: [255, 255, 255],
       fontStyle: 'bold',
-      fontSize: 7.5,
+      fontSize: isWideTable ? 6.5 : 7.5,
       halign: 'center'
     },
     footStyles: {
       fillColor: [235, 238, 243],
       textColor: [30, 30, 45],
       fontStyle: 'bold',
-      fontSize: 7.5
+      fontSize: isWideTable ? 6.5 : 7.5
     },
     columnStyles: colStyles,
     alternateRowStyles: {
