@@ -33,9 +33,18 @@ function cleanStr(val) {
   return s === 'nan' ? '' : s;
 }
 
-const APP_VERSION = 'v3.2.4';
+const APP_VERSION = 'v3.2.5';
 
 const APP_RELEASE_LOG = [
+  {
+    version: 'v3.2.5',
+    date: '2026-07-30',
+    title: 'Multi-Page Running Header Banner on Every PDF Page for Date-Wise Receipts & RRC Lists',
+    changes: [
+      'Added dark blue running top header banner on page 2 onwards across all PDF exports displaying Report Title, EO Name, and Subtitle.',
+      'Guarantees 100% report identification and EO context on every single printed page of Date-Wise Receipts and RRC lists.'
+    ]
+  },
   {
     version: 'v3.2.4',
     date: '2026-07-30',
@@ -4273,7 +4282,7 @@ function generateReportPdf(reportTitle, reportSubhead, containerId, orientation 
     foot: footRows.length > 0 ? footRows : undefined,
     showFoot: 'lastPage',
     startY: 40,
-    margin: { top: 40, left: 8, right: 8, bottom: 14 },
+    margin: { top: 18, left: 8, right: 8, bottom: 14 },
     styles: {
       font: 'helvetica',
       fontSize: isWideTable ? 6 : 7,
@@ -4299,14 +4308,33 @@ function generateReportPdf(reportTitle, reportSubhead, containerId, orientation 
     alternateRowStyles: {
       fillColor: [248, 249, 250]
     },
-    // Two-pass footer: collect page positions during draw, stamp totals after autoTable
     didDrawPage: function (data) {
       const pageH = doc.internal.pageSize.getHeight();
+
+      // On Page 2 onwards, draw top running header bar displaying Report Title & EO Name
+      if (data.pageNumber > 1) {
+        doc.setFillColor(30, 30, 45);
+        doc.rect(0, 0, pageWidth, 15, 'F');
+
+        doc.setTextColor(255, 255, 255);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8.5);
+        doc.text("EMPLOYEES' PROVIDENT FUND ORGANISATION — CUTTACK", 8, 6);
+
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(241, 196, 15);
+        doc.text(reportTitle.toUpperCase(), pageWidth - 8, 6, { align: 'right' });
+
+        doc.setTextColor(200, 210, 225);
+        doc.setFontSize(7);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`[Continued...] ${reportSubhead}`, 8, 11.5);
+      }
+
       doc.setFontSize(8);
       doc.setTextColor(120, 120, 120);
-      // Left-side label (same on every page)
       doc.text('EPFO Cuttack \u2014 Official Recovery Certificate Management System', 10, pageH - 6);
-      // Right-side placeholder: write current page number now; total will be overwritten below
       doc.text(`Page ${data.pageNumber}`, pageWidth - 10, pageH - 6, { align: 'right' });
     }
   });
@@ -4316,10 +4344,8 @@ function generateReportPdf(reportTitle, reportSubhead, containerId, orientation 
   const pageH = doc.internal.pageSize.getHeight();
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
-    // White-out the old placeholder on the right side
     doc.setFillColor(255, 255, 255);
     doc.rect(pageWidth - 45, pageH - 12, 40, 10, 'F');
-    // Stamp the correct "Page X of N"
     doc.setFontSize(8);
     doc.setTextColor(120, 120, 120);
     doc.text(`Page ${i} of ${totalPages}`, pageWidth - 10, pageH - 6, { align: 'right' });
@@ -4384,20 +4410,45 @@ function generateDataPdf(reportTitle, reportSubhead, headers, bodyRows, orientat
     }
   });
 
+  const isWideTable = headers.length > 10;
+
   doc.autoTable({
     head: [headers],
     body: cleanBodyRows,
     startY: 40,
-    margin: { top: 40, left: 10, right: 10, bottom: 14 },
-    styles: { font: 'helvetica', fontSize: 7, cellPadding: 1.8, lineColor: [220, 224, 230], lineWidth: 0.1, overflow: 'linebreak' },
-    headStyles: { fillColor: [30, 30, 45], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7.5, halign: 'center' },
+    margin: { top: 18, left: 8, right: 8, bottom: 14 },
+    styles: { font: 'helvetica', fontSize: isWideTable ? 6 : 7, cellPadding: isWideTable ? 1.2 : 1.8, lineColor: [220, 224, 230], lineWidth: 0.1, overflow: 'linebreak' },
+    headStyles: { fillColor: [30, 30, 45], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: isWideTable ? 6.5 : 7.5, halign: 'center' },
     columnStyles: colStyles,
     alternateRowStyles: { fillColor: [248, 249, 250] },
     didDrawPage: function (data) {
       const pageH = doc.internal.pageSize.getHeight();
+
+      // On Page 2 onwards, draw top running header bar displaying Report Title & EO Name
+      if (data.pageNumber > 1) {
+        doc.setFillColor(30, 30, 45);
+        doc.rect(0, 0, pageWidth, 15, 'F');
+
+        doc.setTextColor(255, 255, 255);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8.5);
+        doc.text("EMPLOYEES' PROVIDENT FUND ORGANISATION — CUTTACK", 8, 6);
+
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(241, 196, 15);
+        doc.text(reportTitle.toUpperCase(), pageWidth - 8, 6, { align: 'right' });
+
+        doc.setTextColor(200, 210, 225);
+        doc.setFontSize(7);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`[Continued...] ${reportSubhead}`, 8, 11.5);
+      }
+
       doc.setFontSize(8);
       doc.setTextColor(120, 120, 120);
       doc.text('EPFO Cuttack \u2014 Official Recovery Certificate Management System', 10, pageH - 6);
+      doc.text(`Page ${data.pageNumber}`, pageWidth - 10, pageH - 6, { align: 'right' });
     }
   });
 
