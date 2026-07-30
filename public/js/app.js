@@ -33,9 +33,18 @@ function cleanStr(val) {
   return s === 'nan' ? '' : s;
 }
 
-const APP_VERSION = 'v3.1.1';
+const APP_VERSION = 'v3.1.2';
 
 const APP_RELEASE_LOG = [
+  {
+    version: 'v3.1.2',
+    date: '2026-07-30',
+    title: 'High-Visibility Larger Light Cyan EST Code Badges Across EO Recovery Cards & Tables',
+    changes: [
+      'Replaced small dark purple EST code styling with large 13.5px bold light cyan badges (#00cec9 on soft cyan background).',
+      'Upgraded EST Code readability across EO Filter RRCs modal, EO Month Breakdown modal, Defaulters list, and Ageing Drilldown tables.'
+    ]
+  },
   {
     version: 'v3.1.1',
     date: '2026-07-30',
@@ -1479,7 +1488,7 @@ function renderEoMonthDetailsTable() {
       <tr style="cursor: pointer; font-size: 12px; ${rowBgStyle}" onclick="closeModal('eoMonthDetailsModal'); quickOpenEstablishment('${safeCode}', ${rowMasterId}, '${safeType}')" title="Click to view ${r.estName} (${r.estCode}) ledger">
         <td class="text-center" style="padding: 5px 3px;"><strong>#${idx + 1}</strong></td>
         <td style="padding: 5px 4px; white-space: nowrap;"><strong>${r.date}</strong></td>
-        <td style="padding: 5px 4px; white-space: nowrap;"><strong style="color:var(--accent); font-weight:700; font-size:12px;">${r.estCode}</strong></td>
+        <td style="padding: 5px 4px; white-space: nowrap;"><span class="badge" style="background: rgba(0, 206, 201, 0.15); color: #00cec9; border: 1px solid rgba(0, 206, 201, 0.35); font-size: 13.5px; font-weight: 800; font-family: monospace; padding: 4px 9px; border-radius: 6px; display: inline-block;">${r.estCode}</span></td>
         <td style="padding: 5px 4px; width: 160px; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${r.estName}"><strong style="color:var(--text-primary); font-size:12px;">${r.estName}</strong>${statusBadgeHtml}</td>
         <td class="text-center" style="padding: 5px 3px;"><span class="type-badge" style="font-size:10px; padding: 2px 5px;">${r.type}</span></td>
         <td style="padding: 5px 4px; white-space: nowrap;"><strong>${r.receiptNo}</strong></td>
@@ -1809,7 +1818,7 @@ function renderEoRrcPage(page) {
     html += `
       <tr style="cursor:pointer;" onclick="closeModal('eoRrcFilterModal'); quickOpenEstablishment('${code}', ${r.id}, '${typeStr}')" title="Click to open ${typeStr} (${rrcNo}) ledger">
         <td><strong>#${globalIdx + 1}</strong></td>
-        <td><code style="color:var(--accent);font-weight:700;">${code}</code></td>
+        <td style="white-space: nowrap;"><span class="badge" style="background: rgba(0, 206, 201, 0.15); color: #00cec9; border: 1px solid rgba(0, 206, 201, 0.35); font-size: 13.5px; font-weight: 800; font-family: monospace; padding: 4px 9px; border-radius: 6px; display: inline-block;">${code}</span></td>
         <td class="est-name-cell"><strong style="color:var(--text-primary);">${cleanStr(r.est_name)}</strong> <i class="fas fa-external-link-alt ms-1" style="font-size:10px;color:var(--accent);opacity:0.8;"></i></td>
         <td><span class="type-badge" onclick="event.stopPropagation(); closeModal('eoRrcFilterModal'); quickOpenEstablishment('${code}',${r.id},'${typeStr}')" style="cursor:pointer;">${typeStr}</span></td>
         <td>${rrcNo}</td>
@@ -4363,7 +4372,7 @@ function renderDefaultersPage(page) {
     html += `
       <tr style="cursor:pointer;" onclick="quickOpenEstablishment('${code}',${r.id},'${typeStr}')" title="Click to open ${typeStr} (${rrcNo}) ledger">
         <td><strong>#${globalIdx + 1}</strong></td>
-        <td><code style="color:var(--accent);font-weight:700;">${code}</code></td>
+        <td style="white-space: nowrap;"><span class="badge" style="background: rgba(0, 206, 201, 0.15); color: #00cec9; border: 1px solid rgba(0, 206, 201, 0.35); font-size: 13.5px; font-weight: 800; font-family: monospace; padding: 4px 9px; border-radius: 6px; display: inline-block;">${code}</span></td>
         <td class="est-name-cell"><strong style="color:var(--text-primary);">${cleanStr(r.est_name)}</strong> <i class="fas fa-external-link-alt ms-1" style="font-size:10px;color:var(--accent);opacity:0.8;"></i></td>
         <td><span class="type-badge" onclick="event.stopPropagation(); quickOpenEstablishment('${code}',${r.id},'${typeStr}')" style="cursor:pointer;">${typeStr}</span></td>
         <td>${rrcNo}</td>
@@ -4827,7 +4836,7 @@ function renderAgeingDrilldownPage(page) {
     html += `
       <tr style="cursor:pointer;" onclick="closeModal('ageingDrilldownModal'); quickOpenEstablishment('${code}',${r.id},'${typeStr}')" title="Open ${typeStr} ledger">
         <td><strong>#${globalIdx + 1}</strong></td>
-        <td><code style="color:var(--accent);font-weight:700;">${code}</code></td>
+        <td style="white-space: nowrap;"><span class="badge" style="background: rgba(0, 206, 201, 0.15); color: #00cec9; border: 1px solid rgba(0, 206, 201, 0.35); font-size: 13.5px; font-weight: 800; font-family: monospace; padding: 4px 9px; border-radius: 6px; display: inline-block;">${code}</span></td>
         <td class="est-name-cell"><strong style="color:var(--text-primary);">${cleanStr(r.est_name)}</strong> <i class="fas fa-external-link-alt ms-1" style="font-size:10px;color:var(--accent);opacity:0.8;"></i></td>
         <td><span class="type-badge" onclick="event.stopPropagation(); closeModal('ageingDrilldownModal'); quickOpenEstablishment('${code}',${r.id},'${typeStr}')" style="cursor:pointer;">${typeStr}</span></td>
         <td>${rrcNo}</td>
