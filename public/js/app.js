@@ -1601,6 +1601,387 @@ function exportEoMonthDetailsPdf() {
   );
 }
 
+// -----------------------------------------------------------------------
+// DAY-TO-DAY DAILY AUDIT LOG & WORK TRACKER ENGINE
+// -----------------------------------------------------------------------
+let _auditLogs = [];
+let _auditLogFilterState = {
+  datePreset: 'TODAY',
+  customDate: '',
+  actionType: 'ALL',
+  searchQuery: ''
+};
+
+function logAuditEvent(eventData) {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const dd = String(now.getDate()).padStart(2, '0');
+  const dateIso = `${yyyy}-${mm}-${dd}`;
+  
+  const hh = String(now.getHours()).padStart(2, '0');
+  const min = String(now.getMinutes()).padStart(2, '0');
+  const ss = String(now.getSeconds()).padStart(2, '0');
+  const timeStr = `${hh}:${min}:${ss}`;
+
+  const loggedUserEl = document.getElementById('loggedInUserEmail');
+  const loggedUser = loggedUserEl ? loggedUserEl.textContent : 'System User';
+
+  const newLog = {
+    id: eventData.id || `audit_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+    timestamp: eventData.timestamp || `${dateIso} ${timeStr}`,
+    date: eventData.date || dateIso,
+    formattedDate: eventData.formattedDate || `${dd}/${mm}/${yyyy} ${timeStr}`,
+    action_type: eventData.action_type || 'MODIFIED',
+    category: eventData.category || 'General Action',
+    est_code: cleanStr(eventData.est_code || '-'),
+    est_name: cleanStr(eventData.est_name || 'N/A'),
+    rrc_no: cleanStr(eventData.rrc_no || '-'),
+    period: cleanStr(eventData.period || '-'),
+    amount: parseFloat(eventData.amount) || 0,
+    details: eventData.details || 'Work action performed',
+    user: eventData.user || loggedUser || 'System Admin'
+  };
+
+  _auditLogs.unshift(newLog);
+  if (typeof appData !== 'undefined' && appData) appData.auditLog = _auditLogs;
+  return newLog;
+}
+
+function buildAuditLogFromSystemData() {
+  if (_auditLogs.length > 0) return;
+
+  let logs = [];
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  // 1. Build logs from Recovery Log (Payments Added)
+  if (typeof appData !== 'undefined' && appData && appData.recoveryLog) {
+    appData.recoveryLog.forEach((l, idx) => {
+      const d = l.date ? String(l.date).slice(0, 10) : todayStr;
+      const displayDt = formatDisplayDate(d);
+      const masterMatch = appData.master.find(m => cleanStr(m.est_code) === cleanStr(l.est_code) || cleanStr(m.rrc_no) === cleanStr(l.rrc_no));
+      const estName = cleanStr(l.est_name || (masterMatch ? masterMatch.est_name : '')) || 'Establishment Record';
+      const eoName = cleanStr(masterMatch ? masterMatch.enforcement_officer : '') || 'Enforcement Officer';
+      const amt = parseFloat(l.amount_deposited) || 0;
+
+      logs.push({
+        id: `rec_log_${l.id || idx}`,
+        timestamp: `${d} 10:00:00`,
+        date: d,
+        formattedDate: `${displayDt} 10:00:00`,
+        action_type: 'ADDED',
+        category: 'Payment Receipt',
+        est_code: cleanStr(l.est_code),
+        est_name: estName,
+        rrc_no: cleanStr(l.rrc_no),
+        period: cleanStr(l.period || (masterMatch ? masterMatch.period : '-')),
+        amount: amt,
+        details: `Payment receipt #${cleanStr(l.receipt_no) || 'REC-' + (l.id || idx)} of ₹${fmtCur(amt)} deposited under Account ${cleanStr(l.account) || '10'}`,
+        user: eoName
+      });
+    });
+  }
+
+  // 2. Build logs from Master Records (Status & Master Updates)
+  if (typeof appData !== 'undefined' && appData && appData.master) {
+    appData.master.forEach((r, idx) => {
+      const estCode = cleanStr(r.est_code);
+      const estName = cleanStr(r.est_name);
+      const rrcNo = cleanStr(r.rrc_no);
+      const eoName = cleanStr(r.enforcement_officer) || 'Enforcement Officer';
+      const period = cleanStr(r.period) || '-';
+
+      if (r.fully_recovered === 'Yes' || parseFloat(r.pending_curr_year) <= 0) {
+        logs.push({
+          id: `mst_rec_${r.id || idx}`,
+          timestamp: `${todayStr} 09:30:00`,
+          date: todayStr,
+          formattedDate: `${formatDisplayDate(todayStr)} 09:30:00`,
+          action_type: 'MODIFIED',
+          category: 'Master Status',
+          est_code: estCode,
+          est_name: estName,
+          rrc_no: rrcNo,
+          period: period,
+          amount: parseFloat(r.recovery_ob) || 0,
+          details: `Establishment certificate marked as FULLY RECOVERED (Total Dues: ₹${fmtCur(r.recovery_ob || 0)})`,
+          user: eoName
+        });
+      }
+
+      if (r.ir_nir_status) {
+        logs.push({
+          id: `ir_rec_${r.id || idx}`,
+          timestamp: `${todayStr} 09:00:00`,
+          date: todayStr,
+          formattedDate: `${formatDisplayDate(todayStr)} 09:00:00`,
+          action_type: r.ir_nir_status === 'IR' ? 'IR_MARKED' : 'NIR_MARKED',
+          category: 'IR/NIR Audit',
+          est_code: estCode,
+          est_name: estName,
+          rrc_no: rrcNo,
+          period: period,
+          amount: parseFloat(r.pending_curr_year) || parseFloat(r.recovery_ob) || 0,
+          details: `Marked inspection audit status as ${r.ir_nir_status}`,
+          user: eoName
+        });
+      }
+    });
+  }
+
+  // Sort logs descending by date
+  logs.sort((a, b) => parseSortableDate(b.date) - parseSortableDate(a.date));
+  _auditLogs = logs;
+  if (typeof appData !== 'undefined' && appData) appData.auditLog = _auditLogs;
+}
+
+function showDailyAuditLogModal() {
+  buildAuditLogFromSystemData();
+
+  const titleEl = document.getElementById('dailyAuditLogTitle');
+  const subEl = document.getElementById('dailyAuditLogSubtitle');
+  if (titleEl) {
+    titleEl.innerHTML = `<i class="fas fa-history me-2" style="color: #00cec9;"></i> Day-to-Day Daily Audit Log & Work Tracker`;
+  }
+  if (subEl) {
+    subEl.textContent = `Comprehensive daily log of payments added, modified, deleted, IR/NIR statuses, and establishment activities`;
+  }
+
+  renderDailyAuditLogView();
+  openModal('dailyAuditLogModal');
+}
+
+function filterAuditLogs() {
+  const dateSel = document.getElementById('auditDatePreset');
+  const customDateInput = document.getElementById('auditCustomDate');
+  const actionSel = document.getElementById('auditActionFilter');
+  const searchInput = document.getElementById('auditSearchInput');
+
+  _auditLogFilterState.datePreset = dateSel ? dateSel.value : 'TODAY';
+  _auditLogFilterState.customDate = customDateInput ? customDateInput.value : '';
+  _auditLogFilterState.actionType = actionSel ? actionSel.value : 'ALL';
+  _auditLogFilterState.searchQuery = searchInput ? searchInput.value.trim().toLowerCase() : '';
+
+  renderDailyAuditLogView();
+}
+
+function renderDailyAuditLogView() {
+  buildAuditLogFromSystemData();
+
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const yesterdayObj = new Date();
+  yesterdayObj.setDate(yesterdayObj.getDate() - 1);
+  const yesterdayIso = yesterdayObj.toISOString().slice(0, 10);
+
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+  const preset = _auditLogFilterState.datePreset;
+  const customDate = _auditLogFilterState.customDate;
+  const actionType = _auditLogFilterState.actionType;
+  const search = _auditLogFilterState.searchQuery;
+
+  // Filter logs
+  const filtered = _auditLogs.filter(l => {
+    // 1. Date filter
+    const lDate = l.date ? String(l.date).slice(0, 10) : '';
+    if (preset === 'TODAY') {
+      if (lDate !== todayIso) return false;
+    } else if (preset === 'YESTERDAY') {
+      if (lDate !== yesterdayIso) return false;
+    } else if (preset === '7DAYS') {
+      const lTime = parseSortableDate(lDate);
+      if (lTime < sevenDaysAgo.getTime()) return false;
+    } else if (preset === 'THIS_MONTH') {
+      if (lDate.slice(0, 7) !== todayIso.slice(0, 7)) return false;
+    } else if (preset === 'CUSTOM') {
+      if (customDate && lDate !== customDate) return false;
+    }
+
+    // 2. Action type filter
+    if (actionType !== 'ALL' && l.action_type !== actionType) return false;
+
+    // 3. Search query filter
+    if (search !== '') {
+      const matchText = `${l.est_code} ${l.est_name} ${l.rrc_no} ${l.details} ${l.user}`.toLowerCase();
+      if (!matchText.includes(search)) return false;
+    }
+
+    return true;
+  });
+
+  // Calculate Metrics
+  let totalActions = filtered.length;
+  let totalAmount = 0;
+  let addedCount = 0;
+  let modifiedCount = 0;
+  let deletedCount = 0;
+
+  filtered.forEach(l => {
+    totalAmount += parseFloat(l.amount) || 0;
+    if (l.action_type === 'ADDED') addedCount++;
+    else if (l.action_type === 'MODIFIED' || l.action_type === 'IR_MARKED' || l.action_type === 'NIR_MARKED') modifiedCount++;
+    else if (l.action_type === 'DELETED') deletedCount++;
+  });
+
+  // Badge styles helper
+  const getActionBadge = (at) => {
+    if (at === 'ADDED') return '<span class="badge" style="background: rgba(0, 200, 150, 0.15); color: var(--success); border: 1px solid rgba(0, 200, 150, 0.3); font-size: 11px; padding: 4px 8px;"><i class="fas fa-plus-circle me-1"></i> ADDED</span>';
+    if (at === 'MODIFIED') return '<span class="badge" style="background: rgba(241, 196, 15, 0.15); color: #d35400; border: 1px solid rgba(241, 196, 15, 0.3); font-size: 11px; padding: 4px 8px;"><i class="fas fa-edit me-1"></i> MODIFIED</span>';
+    if (at === 'DELETED') return '<span class="badge" style="background: rgba(235, 77, 75, 0.15); color: var(--danger); border: 1px solid rgba(235, 77, 75, 0.3); font-size: 11px; padding: 4px 8px;"><i class="fas fa-trash me-1"></i> DELETED</span>';
+    if (at === 'IR_MARKED') return '<span class="badge" style="background: rgba(0, 206, 201, 0.15); color: #00cec9; border: 1px solid rgba(0, 206, 201, 0.3); font-size: 11px; padding: 4px 8px;"><i class="fas fa-magnifying-glass me-1"></i> IR MARKED</span>';
+    if (at === 'NIR_MARKED') return '<span class="badge" style="background: rgba(108, 92, 231, 0.15); color: var(--accent); border: 1px solid rgba(108, 92, 231, 0.3); font-size: 11px; padding: 4px 8px;"><i class="fas fa-ban me-1"></i> NIR MARKED</span>';
+    if (at === 'CSV_IMPORT') return '<span class="badge" style="background: rgba(52, 152, 219, 0.15); color: #3498db; border: 1px solid rgba(52, 152, 219, 0.3); font-size: 11px; padding: 4px 8px;"><i class="fas fa-file-import me-1"></i> BULK IMPORT</span>';
+    return `<span class="badge" style="background: var(--bg-card-alt); color: var(--text-primary); font-size: 11px; padding: 4px 8px;">${at}</span>`;
+  };
+
+  let rowsHtml = '';
+  filtered.forEach((l, idx) => {
+    const codeBadge = `<span class="badge" style="background: rgba(0, 206, 201, 0.15); color: #00cec9; border: 1px solid rgba(0, 206, 201, 0.35); font-size: 13.5px; font-weight: 800; font-family: monospace; padding: 3px 8px; border-radius: 5px; display: inline-block;">${l.est_code}</span>`;
+
+    rowsHtml += `
+      <tr style="font-size: 12px;">
+        <td class="text-center" style="padding: 6px 4px;"><strong>#${idx + 1}</strong></td>
+        <td style="padding: 6px 5px; white-space: nowrap; font-weight: 600; color: var(--text-secondary);">${l.formattedDate || formatDisplayDate(l.date)}</td>
+        <td class="text-center" style="padding: 6px 4px;">${getActionBadge(l.action_type)}</td>
+        <td style="padding: 6px 5px; white-space: nowrap;">${codeBadge}</td>
+        <td style="padding: 6px 5px; width: 170px; max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${l.est_name}"><strong style="color: var(--text-primary);">${l.est_name}</strong></td>
+        <td style="padding: 6px 5px; white-space: nowrap;"><strong>${l.rrc_no}</strong></td>
+        <td style="padding: 6px 4px; font-size: 11px; color: var(--text-secondary);">${l.period}</td>
+        <td class="text-end" style="padding: 6px 5px; font-weight: 700; color: ${l.amount > 0 ? 'var(--success)' : 'var(--text-secondary)'};">${l.amount > 0 ? fmtCur(l.amount) : '-'}</td>
+        <td style="padding: 6px 6px; font-size: 11.5px; color: var(--text-primary);">${l.details}</td>
+        <td style="padding: 6px 5px; font-size: 11px; color: var(--accent); font-weight: 600;">${l.user}</td>
+      </tr>
+    `;
+  });
+
+  const bodyHtml = `
+    <!-- Top Filter Controls Bar -->
+    <div style="background: var(--bg-card-alt); border-radius: 12px; padding: 14px 18px; margin-bottom: 18px; border: 1px solid var(--border-color); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;">
+      <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+        <div>
+          <label style="font-size: 11px; font-weight: 700; color: var(--text-secondary); display: block; margin-bottom: 3px;"><i class="fas fa-calendar-alt me-1"></i> Date Filter</label>
+          <select id="auditDatePreset" class="custom-select" style="padding: 5px 10px; font-size: 12px; border-radius: 8px;" onchange="filterAuditLogs()">
+            <option value="TODAY" ${preset === 'TODAY' ? 'selected' : ''}>Today (${formatDisplayDate(todayIso)})</option>
+            <option value="YESTERDAY" ${preset === 'YESTERDAY' ? 'selected' : ''}>Yesterday (${formatDisplayDate(yesterdayIso)})</option>
+            <option value="7DAYS" ${preset === '7DAYS' ? 'selected' : ''}>Last 7 Days</option>
+            <option value="THIS_MONTH" ${preset === 'THIS_MONTH' ? 'selected' : ''}>This Month</option>
+            <option value="CUSTOM" ${preset === 'CUSTOM' ? 'selected' : ''}>Custom Date...</option>
+            <option value="ALL" ${preset === 'ALL' ? 'selected' : ''}>All History</option>
+          </select>
+        </div>
+
+        ${preset === 'CUSTOM' ? `
+          <div>
+            <label style="font-size: 11px; font-weight: 700; color: var(--text-secondary); display: block; margin-bottom: 3px;">Pick Specific Date</label>
+            <input type="date" id="auditCustomDate" class="custom-input" style="padding: 4px 8px; font-size: 12px; border-radius: 8px;" value="${customDate}" onchange="filterAuditLogs()">
+          </div>
+        ` : ''}
+
+        <div>
+          <label style="font-size: 11px; font-weight: 700; color: var(--text-secondary); display: block; margin-bottom: 3px;"><i class="fas fa-filter me-1"></i> Action Type</label>
+          <select id="auditActionFilter" class="custom-select" style="padding: 5px 10px; font-size: 12px; border-radius: 8px;" onchange="filterAuditLogs()">
+            <option value="ALL" ${actionType === 'ALL' ? 'selected' : ''}>All Action Types</option>
+            <option value="ADDED" ${actionType === 'ADDED' ? 'selected' : ''}>ADDED (Payment Receipts)</option>
+            <option value="MODIFIED" ${actionType === 'MODIFIED' ? 'selected' : ''}>MODIFIED (Master Updates)</option>
+            <option value="DELETED" ${actionType === 'DELETED' ? 'selected' : ''}>DELETED Records</option>
+            <option value="IR_MARKED" ${actionType === 'IR_MARKED' ? 'selected' : ''}>IR Marked Status</option>
+            <option value="NIR_MARKED" ${actionType === 'NIR_MARKED' ? 'selected' : ''}>NIR Marked Status</option>
+            <option value="CSV_IMPORT" ${actionType === 'CSV_IMPORT' ? 'selected' : ''}>CSV / Bulk Imports</option>
+          </select>
+        </div>
+
+        <div>
+          <label style="font-size: 11px; font-weight: 700; color: var(--text-secondary); display: block; margin-bottom: 3px;"><i class="fas fa-search me-1"></i> Quick Search</label>
+          <input type="text" id="auditSearchInput" class="custom-input" style="padding: 5px 12px; font-size: 12px; width: 220px; border-radius: 8px;" placeholder="Code, Name, RRC No..." value="${search}" oninput="filterAuditLogs()">
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 8px;">
+        <button class="sidebar-btn btn-outline" style="width: auto; padding: 5px 12px; font-size: 11px; margin: 0;" onclick="exportDailyAuditLogCsv()"><i class="fas fa-file-csv me-1"></i> CSV</button>
+        <button class="sidebar-btn" style="width: auto; padding: 5px 12px; font-size: 11px; margin: 0; background: linear-gradient(135deg, #e74c3c, #c0392b); color: #fff; border: none; font-weight: 700; border-radius: 6px;" onclick="exportDailyAuditLogPdf()"><i class="fas fa-file-pdf me-1"></i> PDF Report</button>
+      </div>
+    </div>
+
+    <!-- Audit Summary Metric Cards -->
+    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px;">
+      <div style="background: var(--bg-card-alt); border-radius: 10px; padding: 12px 16px; border-left: 4px solid #00cec9; border: 1px solid var(--border-color);">
+        <span style="font-size: 11px; color: var(--text-secondary); font-weight: 600;">Total Actions Logged</span>
+        <h3 style="margin: 4px 0 0 0; color: #00cec9; font-weight: 800; font-size: 20px;">${totalActions}</h3>
+      </div>
+      <div style="background: var(--bg-card-alt); border-radius: 10px; padding: 12px 16px; border-left: 4px solid var(--success); border: 1px solid var(--border-color);">
+        <span style="font-size: 11px; color: var(--text-secondary); font-weight: 600;">Payments Added</span>
+        <h3 style="margin: 4px 0 0 0; color: var(--success); font-weight: 800; font-size: 20px;">${addedCount} Receipts</h3>
+      </div>
+      <div style="background: var(--bg-card-alt); border-radius: 10px; padding: 12px 16px; border-left: 4px solid var(--accent); border: 1px solid var(--border-color);">
+        <span style="font-size: 11px; color: var(--text-secondary); font-weight: 600;">Total Amount Processed</span>
+        <h3 style="margin: 4px 0 0 0; color: var(--accent); font-weight: 800; font-size: 20px;">₹${fmtCur(totalAmount)}</h3>
+      </div>
+      <div style="background: var(--bg-card-alt); border-radius: 10px; padding: 12px 16px; border-left: 4px solid #d35400; border: 1px solid var(--border-color);">
+        <span style="font-size: 11px; color: var(--text-secondary); font-weight: 600;">Modifications & Audits</span>
+        <h3 style="margin: 4px 0 0 0; color: #d35400; font-weight: 800; font-size: 20px;">${modifiedCount + deletedCount} Events</h3>
+      </div>
+    </div>
+
+    <!-- Data Table -->
+    <div style="max-height: 520px; overflow-y: auto; overflow-x: hidden; width: 100%;">
+      <table class="ledger-table table-hover align-middle mb-0" id="dailyAuditLogTable" style="width: 100%; table-layout: auto; font-size: 11px;">
+        <thead style="position: sticky; top: 0; z-index: 10; background: var(--bg-card-alt); font-size: 11px;">
+          <tr>
+            <th class="text-center" style="width: 28px; padding: 6px 3px;">#</th>
+            <th style="width: 130px; padding: 6px 5px; white-space: nowrap;">Date & Time</th>
+            <th class="text-center" style="width: 95px; padding: 6px 4px;">Action Type</th>
+            <th style="width: 115px; padding: 6px 5px;">EST Code</th>
+            <th style="width: 170px; max-width: 170px; padding: 6px 5px;">Establishment Name</th>
+            <th style="width: 110px; padding: 6px 5px;">RRC No</th>
+            <th style="width: 90px; padding: 6px 4px;">Period</th>
+            <th class="text-end" style="width: 95px; padding: 6px 5px; background: rgba(0, 200, 150, 0.08); color: var(--success);">Amount (₹)</th>
+            <th style="padding: 6px 6px;">Work Done / Action Description</th>
+            <th style="width: 110px; padding: 6px 5px;">Action By</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHtml !== '' ? rowsHtml : `
+            <tr>
+              <td colspan="10" class="text-center" style="padding: 35px; color: var(--text-secondary);">
+                <i class="fas fa-info-circle me-2" style="font-size: 18px; color: var(--accent);"></i>
+                No day-to-day audit activities found for the selected date and filters.
+              </td>
+            </tr>
+          `}
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  document.getElementById('dailyAuditLogModalBody').innerHTML = bodyHtml;
+}
+
+function exportDailyAuditLogCsv() {
+  if (!_auditLogs || _auditLogs.length === 0) return alert('No audit log records to export.');
+
+  let csv = `EPFO Cuttack — Day-to-Day Daily Audit Log & Activity Report\n`;
+  csv += `Export Date: ${new Date().toLocaleString()}\n`;
+  csv += `Sl No,Date & Time,Action Type,Category,EST Code,Establishment Name,RRC No,Period,Amount,Work Done / Details,User\n`;
+
+  _auditLogs.forEach((l, idx) => {
+    csv += `${idx + 1},"${l.formattedDate || l.date}","${l.action_type}","${l.category}","${l.est_code}","${l.est_name}","${l.rrc_no}","${l.period}",${l.amount},"${l.details}","${l.user}"\n`;
+  });
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+  downloadCsvFile(csv, `Daily_Audit_Log_${todayStr}.csv`);
+}
+
+function exportDailyAuditLogPdf() {
+  if (!_auditLogs || _auditLogs.length === 0) return alert('No audit log records to export.');
+  generateReportPdf(
+    'Day-to-Day Daily Audit Log & Work Activity Report',
+    `Daily log of payments added, modified, deleted, IR/NIR statuses, and establishment activities as of ${new Date().toLocaleDateString()}`,
+    'dailyAuditLogModalBody',
+    'landscape'
+  );
+}
+
 function exportEoMatrixCsv() {
   const fySelect = document.getElementById('eoFySelect');
   const selectedFy = (fySelect && fySelect.value && fySelect.value !== '') ? fySelect.value : '2026-2027';
@@ -3008,6 +3389,17 @@ async function saveReceiptEntry(rowId, editingGKey = null) {
   }
 
   appData.recoveryLog = (data || newEntries).concat(appData.recoveryLog);
+
+  logAuditEvent({
+    action_type: editingGKey ? 'MODIFIED' : 'ADDED',
+    category: 'Payment Receipt',
+    est_code: targetEstCode,
+    est_name: cleanStr(row.est_name),
+    rrc_no: cleanStr(row.rrc_no),
+    period: cleanStr(row.period),
+    amount: totalPaid,
+    details: `${editingGKey ? 'Updated' : 'Added'} payment receipt #${receiptNo || '-'} of ₹${fmtCur(totalPaid)} deposited on ${formatDisplayDate(txnDate)}`
+  });
 
   // Recalculate Account Paid Totals for this certificate
   const estCode = cleanStr(row.est_code);

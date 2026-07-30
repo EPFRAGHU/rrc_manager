@@ -114,6 +114,10 @@
       <i class="fas fa-user-shield"></i> EO Monthly Performance
     </button>
 
+    <button class="sidebar-btn btn-outline" style="border-color: #00cec9; color: #00cec9;" onclick="showDailyAuditLogModal()">
+      <i class="fas fa-history me-1"></i> Daily Audit Log
+    </button>
+
     <div style="margin-top: auto; padding: 20px; font-size: 11px; color: var(--text-secondary); text-align: center;">
       Employees' Provident Fund Organisation<br>
       <span style="font-size: 9px; opacity: 0.7;">Powered by Supabase & StarAdmin-2</span>
@@ -131,7 +135,7 @@
       </div>
       <div style="display: flex; align-items: center; gap: 10px;">
         <span id="appVersionBadge" style="background: rgba(108, 92, 231, 0.15); color: var(--accent); padding: 6px 14px; border-radius: 20px; font-size: 11px; font-weight: 700; border: 1px solid rgba(108, 92, 231, 0.3); cursor: pointer;" onclick="showVersionHistoryModal()" title="Click to view Version Release Changelog">
-          <i class="fas fa-code-branch me-1"></i> Version v3.1.2
+          <i class="fas fa-code-branch me-1"></i> Version v3.2.0
         </span>
         <span id="syncStatusBadge" style="background: var(--success-soft); color: var(--success); padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 600;">
           <i class="fas fa-database me-1"></i> Supabase Connected
@@ -557,6 +561,34 @@
   </div>
 </div>
 
+<!-- MODAL: DAILY AUDIT LOG & DAY-TO-DAY ACTIVITY TRACKER -->
+<div class="modal-overlay" id="dailyAuditLogModal" style="z-index: 1160;">
+  <div class="modal-container" style="max-width: 98%; width: 98%;">
+    <div class="modal-header">
+      <div>
+        <h3 style="margin: 0;" id="dailyAuditLogTitle">
+          <i class="fas fa-history me-2" style="color: #00cec9;"></i> Day-to-Day Daily Audit Log & Work Tracker
+        </h3>
+        <span style="font-size: 14px; color: var(--text-secondary);" id="dailyAuditLogSubtitle">
+          Comprehensive daily log of payments added, modified, deleted, IR/NIR statuses, and establishment activities
+        </span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <button class="sidebar-btn btn-outline" style="width: auto; margin: 0; padding: 6px 14px;" onclick="exportDailyAuditLogCsv()">
+          <i class="fas fa-file-csv me-1"></i> Export CSV
+        </button>
+        <button class="sidebar-btn" style="width: auto; margin: 0; padding: 6px 14px; background: linear-gradient(135deg, #e74c3c, #c0392b); color: #fff; border: none; font-weight: 700; border-radius: 8px; box-shadow: 0 4px 10px rgba(231,76,60,0.4);" onclick="exportDailyAuditLogPdf()">
+          <i class="fas fa-file-pdf me-1"></i> Export PDF
+        </button>
+        <button class="modal-close-btn" onclick="closeModal('dailyAuditLogModal')">&times;</button>
+      </div>
+    </div>
+    <div class="modal-body" id="dailyAuditLogModalBody">
+      <!-- Dynamic Daily Audit Log Content -->
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: EO RRC FILTER LIST -->
 <div class="modal-overlay" id="eoRrcFilterModal">
   <div class="modal-container">
@@ -741,7 +773,7 @@
 </div>
 
 <!-- App Controller Script -->
-<script src="js/app.js?v=3.1.2"></script>
+<script src="js/app.js?v=3.2.0"></script>
 
 </body>
 </html>
