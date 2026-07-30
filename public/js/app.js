@@ -33,9 +33,18 @@ function cleanStr(val) {
   return s === 'nan' ? '' : s;
 }
 
-const APP_VERSION = 'v3.2.5';
+const APP_VERSION = 'v3.2.6';
 
 const APP_RELEASE_LOG = [
+  {
+    version: 'v3.2.6',
+    date: '2026-07-30',
+    title: 'Identical Replicated Full PDF Header Banner on Every Page (1st, 2nd & Onwards)',
+    changes: [
+      'Replicated the exact 1st page header banner across all subsequent PDF pages (same size, same style, same font size, same height, same colors).',
+      'Unified PDF layout so every page displays identical official EPFO header, title block, generated timestamp, and subtitle.'
+    ]
+  },
   {
     version: 'v3.2.5',
     date: '2026-07-30',
@@ -4179,6 +4188,36 @@ function exportVersionLogCsv() {
   downloadCsvFile(csv, 'RRC_Manager_Version_Changelog.csv');
 }
 
+function drawPdfPageHeaderBanner(doc, reportTitle, reportSubhead, pageWidth) {
+  // Official Dark EPFO Blue Header Banner
+  doc.setFillColor(30, 30, 45);
+  doc.rect(0, 0, pageWidth, 24, 'F');
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(13);
+  doc.text("EMPLOYEES' PROVIDENT FUND ORGANISATION", 14, 10);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.text("REGIONAL OFFICE, CUTTACK \u2014 RECOVERY CERTIFICATE MASTER SYSTEM", 14, 16);
+
+  const todayStr = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  doc.setFontSize(8);
+  doc.text(`Generated: ${todayStr}`, pageWidth - 14, 16, { align: 'right' });
+
+  // Report Title & Subtitle
+  doc.setTextColor(30, 30, 45);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.text(reportTitle.toUpperCase(), 14, 31);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(100, 100, 100);
+  doc.text(reportSubhead, 14, 36);
+}
+
 // ------------------------------------------------------------------
 // High-Precision Official Vector PDF Export Engine (jsPDF + AutoTable)
 // ------------------------------------------------------------------
@@ -4200,36 +4239,7 @@ function generateReportPdf(reportTitle, reportSubhead, containerId, orientation 
   });
 
   const pageWidth = doc.internal.pageSize.getWidth();
-  
-  // Official Dark EPFO Blue Header Banner
-  doc.setFillColor(30, 30, 45);
-  doc.rect(0, 0, pageWidth, 24, 'F');
 
-  doc.setTextColor(255, 255, 255);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(13);
-  doc.text("EMPLOYEES' PROVIDENT FUND ORGANISATION", 14, 10);
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8.5);
-  doc.text("REGIONAL OFFICE, CUTTACK — RECOVERY CERTIFICATE MASTER SYSTEM", 14, 16);
-
-  const todayStr = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-  doc.setFontSize(8);
-  doc.text(`Generated: ${todayStr}`, pageWidth - 14, 16, { align: 'right' });
-
-  // Report Title & Subtitle
-  doc.setTextColor(30, 30, 45);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
-  doc.text(reportTitle.toUpperCase(), 14, 31);
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8.5);
-  doc.setTextColor(100, 100, 100);
-  doc.text(reportSubhead, 14, 36);
-
-  // Parse Table Content
   // Parse Table Content with precise glyph conversion (₹ -> Rs.) for helvetica font metric alignment
   const headRows = [];
   const bodyRows = [];
@@ -4282,7 +4292,7 @@ function generateReportPdf(reportTitle, reportSubhead, containerId, orientation 
     foot: footRows.length > 0 ? footRows : undefined,
     showFoot: 'lastPage',
     startY: 40,
-    margin: { top: 18, left: 8, right: 8, bottom: 14 },
+    margin: { top: 40, left: 8, right: 8, bottom: 14 },
     styles: {
       font: 'helvetica',
       fontSize: isWideTable ? 6 : 7,
@@ -4309,29 +4319,10 @@ function generateReportPdf(reportTitle, reportSubhead, containerId, orientation 
       fillColor: [248, 249, 250]
     },
     didDrawPage: function (data) {
+      // Draw identical page header banner on every page!
+      drawPdfPageHeaderBanner(doc, reportTitle, reportSubhead, pageWidth);
+
       const pageH = doc.internal.pageSize.getHeight();
-
-      // On Page 2 onwards, draw top running header bar displaying Report Title & EO Name
-      if (data.pageNumber > 1) {
-        doc.setFillColor(30, 30, 45);
-        doc.rect(0, 0, pageWidth, 15, 'F');
-
-        doc.setTextColor(255, 255, 255);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(8.5);
-        doc.text("EMPLOYEES' PROVIDENT FUND ORGANISATION — CUTTACK", 8, 6);
-
-        doc.setFontSize(8);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(241, 196, 15);
-        doc.text(reportTitle.toUpperCase(), pageWidth - 8, 6, { align: 'right' });
-
-        doc.setTextColor(200, 210, 225);
-        doc.setFontSize(7);
-        doc.setFont('helvetica', 'normal');
-        doc.text(`[Continued...] ${reportSubhead}`, 8, 11.5);
-      }
-
       doc.setFontSize(8);
       doc.setTextColor(120, 120, 120);
       doc.text('EPFO Cuttack \u2014 Official Recovery Certificate Management System', 10, pageH - 6);
@@ -4373,30 +4364,6 @@ function generateDataPdf(reportTitle, reportSubhead, headers, bodyRows, orientat
     row.map(cell => typeof cell === 'string' ? cell.replace(/₹\s?|Rs\.\s?/g, '').trim() : cell)
   );
 
-  // Header banner
-  doc.setFillColor(30, 30, 45);
-  doc.rect(0, 0, pageWidth, 24, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(13);
-  doc.text("EMPLOYEES' PROVIDENT FUND ORGANISATION", 14, 10);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8.5);
-  doc.text("REGIONAL OFFICE, CUTTACK \u2014 RECOVERY CERTIFICATE MASTER SYSTEM", 14, 16);
-  const todayStr = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-  doc.setFontSize(8);
-  doc.text(`Generated: ${todayStr}`, pageWidth - 14, 16, { align: 'right' });
-
-  // Title & subtitle
-  doc.setTextColor(30, 30, 45);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
-  doc.text(reportTitle.toUpperCase(), 14, 31);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8.5);
-  doc.setTextColor(100, 100, 100);
-  doc.text(reportSubhead, 14, 36);
-
   // Column alignment
   const colStyles = {};
   headers.forEach((h, idx) => {
@@ -4416,35 +4383,16 @@ function generateDataPdf(reportTitle, reportSubhead, headers, bodyRows, orientat
     head: [headers],
     body: cleanBodyRows,
     startY: 40,
-    margin: { top: 18, left: 8, right: 8, bottom: 14 },
+    margin: { top: 40, left: 8, right: 8, bottom: 14 },
     styles: { font: 'helvetica', fontSize: isWideTable ? 6 : 7, cellPadding: isWideTable ? 1.2 : 1.8, lineColor: [220, 224, 230], lineWidth: 0.1, overflow: 'linebreak' },
     headStyles: { fillColor: [30, 30, 45], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: isWideTable ? 6.5 : 7.5, halign: 'center' },
     columnStyles: colStyles,
     alternateRowStyles: { fillColor: [248, 249, 250] },
     didDrawPage: function (data) {
+      // Draw identical page header banner on every page!
+      drawPdfPageHeaderBanner(doc, reportTitle, reportSubhead, pageWidth);
+
       const pageH = doc.internal.pageSize.getHeight();
-
-      // On Page 2 onwards, draw top running header bar displaying Report Title & EO Name
-      if (data.pageNumber > 1) {
-        doc.setFillColor(30, 30, 45);
-        doc.rect(0, 0, pageWidth, 15, 'F');
-
-        doc.setTextColor(255, 255, 255);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(8.5);
-        doc.text("EMPLOYEES' PROVIDENT FUND ORGANISATION — CUTTACK", 8, 6);
-
-        doc.setFontSize(8);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(241, 196, 15);
-        doc.text(reportTitle.toUpperCase(), pageWidth - 8, 6, { align: 'right' });
-
-        doc.setTextColor(200, 210, 225);
-        doc.setFontSize(7);
-        doc.setFont('helvetica', 'normal');
-        doc.text(`[Continued...] ${reportSubhead}`, 8, 11.5);
-      }
-
       doc.setFontSize(8);
       doc.setTextColor(120, 120, 120);
       doc.text('EPFO Cuttack \u2014 Official Recovery Certificate Management System', 10, pageH - 6);
