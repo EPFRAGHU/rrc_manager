@@ -33,9 +33,27 @@ function cleanStr(val) {
   return s === 'nan' ? '' : s;
 }
 
-const APP_VERSION = 'v3.1.2';
+const APP_VERSION = 'v3.2.1';
 
 const APP_RELEASE_LOG = [
+  {
+    version: 'v3.2.1',
+    date: '2026-07-30',
+    title: 'Hyperlink Dashed Underline Styling for Matrix Total & Grand Total Fields',
+    changes: [
+      'Added dashed hyperlink underlines to all EO row total fields and bottom-right grand total field in the EO Recovery Matrix.',
+      'Ensured all interactive totals in the matrix feature uniform visual cues so users instantly recognize click drill-down capabilities.'
+    ]
+  },
+  {
+    version: 'v3.2.0',
+    date: '2026-07-30',
+    title: 'Day-to-Day Daily Audit Log & Work Tracker System',
+    changes: [
+      'Added Daily Audit Log navigation button in the left sidebar below EO Monthly Performance.',
+      'Built Daily Audit Log Engine capturing EST Code, Establishment Name, RRC No, Period, Amounts, Action Types, and Work Descriptions.'
+    ]
+  },
   {
     version: 'v3.1.2',
     date: '2026-07-30',
@@ -1072,11 +1090,9 @@ function renderEoMonthlyMatrixCard() {
       }
     }
 
-    const rowFyLabel = selectedFy === 'ALL' ? 'All Financial Years' : `FY ${selectedFy}`;
-
     html += `
-        <td class="text-end" style="background: rgba(108, 92, 231, 0.08); font-weight: 700; color: var(--accent); cursor: ${rowTot > 0 ? 'pointer' : 'default'};" ${rowTot > 0 ? `onclick="event.stopPropagation(); showEoMonthDetailsModal('${safeEo}', '${selectedFy}', '${rowFyLabel}')" title="Click to view all date-wise payment receipts for ${eo}"` : ''}>
-          ${fmtCur(rowTot)}
+        <td class="text-end" style="background: rgba(108, 92, 231, 0.08); font-weight: 700; color: var(--accent); cursor: ${rowTot > 0 ? 'pointer' : 'default'};" ${rowTot > 0 ? `onclick="event.stopPropagation(); showEoMonthDetailsModal('${safeEo}', '${selectedFy}', '${eo} — ${rowFyLabel}')" title="Click to view all date-wise payment receipts for ${eo}"` : ''}>
+          ${rowTot > 0 ? `<span style="border-bottom: 1px dashed var(--accent); cursor: pointer;">${fmtCur(rowTot)}</span>` : '-'}
         </td>
       </tr>
     `;
@@ -1110,8 +1126,8 @@ function renderEoMonthlyMatrixCard() {
   }
 
   html += `
-          <td class="text-end" style="background: rgba(0, 200, 150, 0.25); color: var(--success); font-size: 13px; font-weight: 800; cursor: ${grandTotal > 0 ? 'pointer' : 'default'};" ${grandTotal > 0 ? `onclick="event.stopPropagation(); showEoMonthDetailsModal('ALL', '${selectedFy}', '${overallFyLabel}')" title="Click to view total date-wise recoveries across ALL Enforcement Officers in ${overallFyLabel}"` : ''}>
-            ${fmtCur(grandTotal)}
+          <td class="text-end" style="background: rgba(0, 200, 150, 0.25); color: var(--success); font-size: 13px; font-weight: 800; cursor: ${grandTotal > 0 ? 'pointer' : 'default'};" ${grandTotal > 0 ? `onclick="event.stopPropagation(); showEoMonthDetailsModal('ALL', '${selectedFy}', 'ALL Enforcement Officers — ${overallFyLabel}')" title="Click to view total date-wise recoveries across ALL Enforcement Officers in ${overallFyLabel}"` : ''}>
+            ${grandTotal > 0 ? `<span style="border-bottom: 2px dashed var(--success); cursor: pointer;">${fmtCur(grandTotal)}</span>` : '-'}
           </td>
         </tr>
       </tbody>
