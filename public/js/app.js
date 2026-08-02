@@ -38,9 +38,19 @@ function encodeJsAttr(val) {
   return encodeURIComponent(String(val));
 }
 
-const APP_VERSION = 'v3.3.1';
+const APP_VERSION = 'v3.3.2';
 
 const APP_RELEASE_LOG = [
+  {
+    version: 'v3.3.2',
+    date: '2026-08-02',
+    title: 'Top Defaulters, EO RRC Filter & Ageing Drilldown Action Column History Button Integration',
+    changes: [
+      'Added direct History button under Action column across Top Defaulters Watchlist, EO Filter RRCs, and Ageing Year Drilldown modals.',
+      'Upgraded showAccountHistory and refreshAccountHistoryTable to support ALL accounts parameter for comprehensive date-wise payment audit.',
+      'Provided seamless transition from Defaulters list to payment history with full ledger inspection.'
+    ]
+  },
   {
     version: 'v3.3.1',
     date: '2026-08-02',
@@ -2413,9 +2423,14 @@ function renderEoRrcPage(page) {
         <td class="text-end val-recovered" style="color:var(--success);font-weight:700;">${fmtCur(rec)}</td>
         <td class="text-end val-pending">${fmtCur(pend)}</td>
         <td class="text-center">
-          <button class="sidebar-btn btn-success" style="width:auto;margin:0;padding:4px 10px;font-size:10px;border-radius:6px;" onclick="event.stopPropagation(); closeModal('eoRrcFilterModal'); quickOpenEstablishment('${code}',${r.id},'${typeStr}')">
-            <i class="fas fa-plus-circle me-1"></i> Open ${typeStr}
-          </button>
+          <div style="display: inline-flex; gap: 4px; align-items: center; justify-content: center;">
+            <button class="sidebar-btn btn-success" style="width:auto;margin:0;padding:3px 6px;font-size:10px;border-radius:5px;" onclick="event.stopPropagation(); closeModal('eoRrcFilterModal'); quickOpenEstablishment('${code}',${r.id},'${typeStr}')" title="Open Certificate Ledger">
+              <i class="fas fa-folder-open me-1"></i> Ledger
+            </button>
+            <button class="sidebar-btn btn-outline" style="width:auto;margin:0;padding:3px 6px;font-size:10px;border-radius:5px;border-color:var(--accent);color:var(--accent);" onclick="event.stopPropagation(); closeModal('eoRrcFilterModal'); showAccountHistory(${r.id}, 'ALL')" title="View Payment History">
+              <i class="fas fa-history me-1"></i> History
+            </button>
+          </div>
         </td>
       </tr>`;
   });
@@ -3952,7 +3967,7 @@ function cancelReceiptEdit(rowId) {
 // ------------------------------------------------------------------
 // Account Payment History Modal
 // ------------------------------------------------------------------
-function showAccountHistory(rowId, ac) {
+function showAccountHistory(rowId, ac = '1') {
   const row = appData.master.find(r => String(r.id) === String(rowId));
   if (!row) return;
 
@@ -3964,11 +3979,19 @@ function showAccountHistory(rowId, ac) {
   const type = cleanStr(row.type);
   const period = cleanStr(row.period);
 
-  document.getElementById('histModalTitle').textContent = `Account ${ac} Payment History — ${estName}`;
+  const isAll = String(ac).toUpperCase() === 'ALL';
+  const acTitle = isAll ? 'Full Certificate' : `Account ${ac}`;
+  document.getElementById('histModalTitle').textContent = `${acTitle} Payment History — ${estName}`;
   document.getElementById('histModalSubhead').textContent = `${estName} (${estCode}) • RRC: ${rrcNo} • Type: ${type} • Period: ${period}`;
 
-  const due = parseFloat(row[`acc_${ac}_ob`]) || 0;
-  const paid = parseFloat(row[`acc_${ac}_paid`]) || 0;
+  let due = 0, paid = 0;
+  if (isAll) {
+    due = parseFloat(row.recovery_ob) || 0;
+    paid = parseFloat(row.recovered_curr_year) || 0;
+  } else {
+    due = parseFloat(row[`acc_${ac}_ob`]) || 0;
+    paid = parseFloat(row[`acc_${ac}_paid`]) || 0;
+  }
   const bal = due - paid;
 
   document.getElementById('histDueLbl').innerHTML = `<strong>Dues OB:</strong> ${fmtCur(due)}`;
@@ -3984,7 +4007,13 @@ function refreshAccountHistoryTable(rrcNo, ac) {
   if (!tbody) return;
   tbody.innerHTML = '';
 
-  const logs = appData.recoveryLog.filter(l => cleanStr(l.rrc_no) === rrcNo && cleanStr(l.account) === String(ac));
+  const isAll = !ac || String(ac).toUpperCase() === 'ALL';
+  const logs = appData.recoveryLog.filter(l => {
+    const matchRrc = cleanStr(l.rrc_no) === rrcNo;
+    if (isAll) return matchRrc;
+    return matchRrc && cleanStr(l.account) === String(ac);
+  });
+
   logs.sort((a, b) => {
     const dtA = a.date ? new Date(a.date).getTime() : 0;
     const dtB = b.date ? new Date(b.date).getTime() : 0;
@@ -4007,7 +4036,7 @@ function refreshAccountHistoryTable(rrcNo, ac) {
 
     tr.innerHTML = `
       <td>${rec.date ? String(rec.date).slice(0, 10) : 'N/A'}</td>
-      <td>Account ${ac}</td>
+      <td>Account ${rec.account || ac}</td>
       <td class="text-end val-cleared">${fmtCur(rec.amount_deposited)}</td>
       <td>${cleanStr(rec.period) || 'N/A'}</td>
       <td class="text-center">
@@ -5027,9 +5056,14 @@ function renderDefaultersPage(page) {
         <td class="text-end val-recovered" style="color:var(--success);font-weight:700;">${fmtCur(rec)}</td>
         <td class="text-end val-pending">${fmtCur(pend)}</td>
         <td class="text-center">
-          <button class="sidebar-btn btn-success" style="width:auto;margin:0;padding:4px 10px;font-size:10px;border-radius:6px;" onclick="event.stopPropagation(); quickOpenEstablishment('${code}',${r.id},'${typeStr}')">
-            <i class="fas fa-plus-circle me-1"></i> Open ${typeStr}
-          </button>
+          <div style="display: inline-flex; gap: 4px; align-items: center; justify-content: center;">
+            <button class="sidebar-btn btn-success" style="width:auto;margin:0;padding:3px 6px;font-size:10px;border-radius:5px;" onclick="event.stopPropagation(); closeModal('defaultersModal'); quickOpenEstablishment('${code}',${r.id},'${typeStr}')" title="Open Certificate Ledger">
+              <i class="fas fa-folder-open me-1"></i> Ledger
+            </button>
+            <button class="sidebar-btn btn-outline" style="width:auto;margin:0;padding:3px 6px;font-size:10px;border-radius:5px;border-color:var(--accent);color:var(--accent);" onclick="event.stopPropagation(); closeModal('defaultersModal'); showAccountHistory(${r.id}, 'ALL')" title="View Payment History">
+              <i class="fas fa-history me-1"></i> History
+            </button>
+          </div>
         </td>
       </tr>`;
   });
@@ -5495,9 +5529,14 @@ function renderAgeingDrilldownPage(page) {
         <td class="text-end val-cleared">${fmtCur(paid)}</td>
         <td class="text-end val-pending">${fmtCur(pend)}</td>
         <td class="text-center">
-          <button class="sidebar-btn btn-success" style="width:auto;margin:0;padding:4px 10px;font-size:10px;border-radius:6px;" onclick="event.stopPropagation(); closeModal('ageingDrilldownModal'); quickOpenEstablishment('${code}',${r.id},'${typeStr}')">
-            <i class="fas fa-plus-circle me-1"></i> Open ${typeStr}
-          </button>
+          <div style="display: inline-flex; gap: 4px; align-items: center; justify-content: center;">
+            <button class="sidebar-btn btn-success" style="width:auto;margin:0;padding:3px 6px;font-size:10px;border-radius:5px;" onclick="event.stopPropagation(); closeModal('ageingDrilldownModal'); quickOpenEstablishment('${code}',${r.id},'${typeStr}')" title="Open Certificate Ledger">
+              <i class="fas fa-folder-open me-1"></i> Ledger
+            </button>
+            <button class="sidebar-btn btn-outline" style="width:auto;margin:0;padding:3px 6px;font-size:10px;border-radius:5px;border-color:var(--accent);color:var(--accent);" onclick="event.stopPropagation(); closeModal('ageingDrilldownModal'); showAccountHistory(${r.id}, 'ALL')" title="View Payment History">
+              <i class="fas fa-history me-1"></i> History
+            </button>
+          </div>
         </td>
       </tr>`;
   });
