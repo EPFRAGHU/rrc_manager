@@ -38,9 +38,19 @@ function encodeJsAttr(val) {
   return encodeURIComponent(String(val));
 }
 
-const APP_VERSION = 'v3.3.2';
+const APP_VERSION = 'v3.3.3';
 
 const APP_RELEASE_LOG = [
+  {
+    version: 'v3.3.3',
+    date: '2026-08-02',
+    title: 'Dynamic Modal Stacking Engine & Account History Top-Level Z-Index',
+    changes: [
+      'Implemented dynamic modal z-index stacking engine in openModal to ensure newly opened popups always render on top in front of active background modals.',
+      'Configured accountHistoryModal with high base z-index (2000+) so payment history popups never render behind Defaulters, Ledger, or Report modals.',
+      'Eliminated z-index overlapping glitches across nested popup workflows.'
+    ]
+  },
   {
     version: 'v3.3.2',
     date: '2026-08-02',
@@ -4614,9 +4624,13 @@ function exportFullyRecoveredPdf() { generateReportPdf('Fully Recovered Establis
 // ------------------------------------------------------------------
 // Modal UI Helpers & Interactive Table Column Sorting
 // ------------------------------------------------------------------
+let _topZIndex = 2000;
+
 function openModal(id) {
   const el = document.getElementById(id);
   if (el) {
+    _topZIndex += 10;
+    el.style.zIndex = _topZIndex;
     el.classList.add('active');
     setTimeout(() => {
       const table = el.querySelector('table.ledger-table');
