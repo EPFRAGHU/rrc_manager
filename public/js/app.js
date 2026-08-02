@@ -33,9 +33,27 @@ function cleanStr(val) {
   return s === 'nan' ? '' : s;
 }
 
-const APP_VERSION = 'v3.2.7';
+function encodeJsAttr(val) {
+  if (val === null || val === undefined) return '';
+  return encodeURIComponent(String(val));
+}
+
+const APP_VERSION = 'v3.3.0';
 
 const APP_RELEASE_LOG = [
+  {
+    version: 'v3.3.0',
+    date: '2026-08-02',
+    title: 'Complete Edit & Delete Engine Rectification Across All Modules',
+    changes: [
+      'Implemented encodeJsAttr URI parameter encoding engine for all inline onclick handlers to eliminate special character and quote syntax breaks.',
+      'Normalized ID comparisons across appData.master and appData.recoveryLog to String(id1) === String(id2) to fix string vs integer lookup failures.',
+      'Added direct Edit and Delete action buttons to Date-Wise Receipts Breakdown table in Month Details Popup (eoMonthDetailsModal).',
+      'Added direct Edit and Delete action buttons to Account History modal (refreshAccountHistoryTable).',
+      'Added Edit Certificate Dues (editCertificateMaster) and Delete Certificate (deleteCertificateMaster) functions to RRC Certificate cards.',
+      'Synchronized multi-account database deletions and state recalculation across Supabase recovery_log and rrc_master.'
+    ]
+  },
   {
     version: 'v3.2.7',
     date: '2026-07-30',
@@ -1630,6 +1648,9 @@ function renderEoMonthDetailsTable() {
       ? '<span class="badge" style="background: var(--success); color: #fff; font-size: 8.5px; padding: 2px 5px; border-radius: 4px; margin-left: 4px; font-weight: 700;"><i class="fas fa-check-circle me-1"></i> FULLY RECOVERED</span>'
       : '';
 
+    const encGKey = encodeJsAttr(r.txnId || `${r.date}___${r.receiptNo}`);
+    const encRowMasterId = encodeJsAttr(rowMasterId);
+
     rowsHtml += `
       <tr style="cursor: pointer; font-size: 12px; ${rowBgStyle}" onclick="closeModal('eoMonthDetailsModal'); quickOpenEstablishment('${safeCode}', ${rowMasterId}, '${safeType}')" title="Click to view ${r.estName} (${r.estCode}) ledger">
         <td class="text-center" style="padding: 5px 3px;"><strong>#${idx + 1}</strong></td>
@@ -1649,9 +1670,17 @@ function renderEoMonthDetailsTable() {
         <td class="text-end val-cleared" style="padding: 5px 5px; font-weight: 700;">${fmtCur(r.totalPaid)}</td>
         <td class="text-end" style="padding: 5px 5px; background: ${r.isFullyRecovered ? 'rgba(0, 200, 150, 0.15)' : 'rgba(235, 77, 75, 0.05)'};">${pendingHtml}</td>
         <td class="text-center" style="padding: 5px 3px;">
-          <button class="sidebar-btn btn-success" style="width:auto; margin:0; padding:3px 7px; font-size:10px; border-radius:5px;" onclick="event.stopPropagation(); closeModal('eoMonthDetailsModal'); quickOpenEstablishment('${safeCode}', ${rowMasterId}, '${safeType}')">
-            <i class="fas fa-folder-open me-1"></i> Ledger
-          </button>
+          <div style="display: inline-flex; gap: 4px; align-items: center; justify-content: center;">
+            <button class="sidebar-btn btn-success" style="width:auto; margin:0; padding:3px 6px; font-size:10px; border-radius:5px;" onclick="event.stopPropagation(); closeModal('eoMonthDetailsModal'); quickOpenEstablishment('${safeCode}', ${rowMasterId}, '${safeType}')" title="View Establishment Ledger">
+              <i class="fas fa-folder-open me-1"></i> Ledger
+            </button>
+            <button class="sidebar-btn btn-outline" style="width:24px; height:24px; margin:0; padding:0; font-size:10px; display:inline-flex; align-items:center; justify-content:center;" onclick="event.stopPropagation(); closeModal('eoMonthDetailsModal'); quickOpenEstablishment('${safeCode}', ${rowMasterId}, '${safeType}'); setTimeout(() => editReceiptGroupInline(decodeURIComponent('${encGKey}'), decodeURIComponent('${encRowMasterId}')), 300);" title="Edit Receipt Record">
+              <i class="fas fa-edit" style="color: var(--accent);"></i>
+            </button>
+            <button class="sidebar-btn btn-outline" style="width:24px; height:24px; margin:0; padding:0; font-size:10px; display:inline-flex; align-items:center; justify-content:center;" onclick="event.stopPropagation(); deleteReceiptGroup(decodeURIComponent('${encGKey}'), decodeURIComponent('${encRowMasterId}'));" title="Delete Receipt Record">
+              <i class="fas fa-trash-alt" style="color: var(--danger);"></i>
+            </button>
+          </div>
         </td>
       </tr>
     `;
@@ -2938,15 +2967,23 @@ function buildCertificateCard(row) {
   card.id = `cert-card-${row.id}`;
 
   const isFullyRecovered = cleanStr(row.fully_recovered) === 'Yes' || (parseFloat(row.pending_curr_year) || 0) <= 0;
+  const encRowId = encodeJsAttr(row.id);
 
   let headerHtml = `
     <div class="card-header-bar">
-      <div style="display: flex; align-items: center; gap: 12px;">
+      <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
         <span class="type-badge">${cleanStr(row.type) || 'N/A'}</span>
         <span style="font-weight: 700; font-size: 14px;">RRC No: ${cleanStr(row.rrc_no)} &nbsp;•&nbsp; Period: ${cleanStr(row.period)}</span>
         ${isFullyRecovered ? '<span class="recovered-badge"><i class="fas fa-check-circle me-1"></i> Fully Recovered</span>' : ''}
       </div>
-      <span style="font-size: 11px; color: var(--text-secondary);">Deposited column is editable — press Enter to save to Supabase</span>
+      <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+        <button class="sidebar-btn btn-outline" style="width: auto; padding: 3px 9px; margin: 0; font-size: 11px; border-color: var(--accent); color: var(--accent);" title="Edit Opening Dues (OB) & Certificate Details" onclick="editCertificateMaster(decodeURIComponent('${encRowId}'))">
+          <i class="fas fa-edit me-1"></i> Edit Dues
+        </button>
+        <button class="sidebar-btn btn-outline" style="width: auto; padding: 3px 9px; margin: 0; font-size: 11px; border-color: var(--danger); color: var(--danger);" title="Delete Certificate Record" onclick="deleteCertificateMaster(decodeURIComponent('${encRowId}'))">
+          <i class="fas fa-trash-alt me-1"></i> Delete Cert
+        </button>
+      </div>
     </div>
   `;
 
@@ -3252,7 +3289,8 @@ function buildReceiptLedgerSection(row) {
       rowTotal += amt;
     });
 
-    const safeGKey = String(gKey).replace(/'/g, "\\'");
+    const encGKey = encodeJsAttr(gKey);
+    const encRowId = encodeJsAttr(row.id);
     receiptRowsHtml += `
       <tr>
         <td>${dt}</td>
@@ -3261,10 +3299,10 @@ function buildReceiptLedgerSection(row) {
         <td class="text-end val-cleared">${fmtCur(rowTotal)}</td>
         <td class="text-center">
           <div style="display: inline-flex; gap: 6px; align-items: center; justify-content: center;">
-            <button class="sidebar-btn btn-outline" style="width: 28px; height: 28px; padding: 0; margin: 0; display: inline-flex; align-items: center; justify-content: center;" title="Edit Receipt in Form Above" onclick="editReceiptGroupInline('${safeGKey}', ${row.id})">
+            <button class="sidebar-btn btn-outline" style="width: 28px; height: 28px; padding: 0; margin: 0; display: inline-flex; align-items: center; justify-content: center;" title="Edit Receipt in Form Above" onclick="editReceiptGroupInline(decodeURIComponent('${encGKey}'), decodeURIComponent('${encRowId}'))">
               <i class="fas fa-edit" style="color: var(--accent);"></i>
             </button>
-            <button class="sidebar-btn btn-outline" style="width: 28px; height: 28px; padding: 0; margin: 0; display: inline-flex; align-items: center; justify-content: center;" title="Delete Receipt" onclick="deleteReceiptGroup('${safeGKey}', ${row.id})">
+            <button class="sidebar-btn btn-outline" style="width: 28px; height: 28px; padding: 0; margin: 0; display: inline-flex; align-items: center; justify-content: center;" title="Delete Receipt" onclick="deleteReceiptGroup(decodeURIComponent('${encGKey}'), decodeURIComponent('${encRowId}'))">
               <i class="fas fa-trash-alt" style="color: var(--danger);"></i>
             </button>
           </div>
@@ -3614,7 +3652,7 @@ async function deleteReceiptGroup(gKey, rowId) {
 
   showSaveStatus('⏳ Deleting receipt from database...', 'var(--warning)');
 
-  const targetRow = appData.master.find(r => r.id === rowId);
+  const targetRow = appData.master.find(r => String(r.id) === String(rowId));
   const targetEstCode = targetRow ? cleanStr(targetRow.est_code) : '';
   const targetType = targetRow ? cleanStr(targetRow.type) : '';
 
@@ -3708,9 +3746,23 @@ async function deleteReceiptGroup(gKey, rowId) {
     }
   }
 
+  // Audit logging
+  const delSample = toDelete[0];
+  const totDelAmt = toDelete.reduce((s, i) => s + (parseFloat(i.amount_deposited) || 0), 0);
+  logAuditEvent({
+    action_type: 'DELETED',
+    category: 'Payment Deletion',
+    est_code: cleanStr(targetRow?.est_code || delSample?.est_code),
+    est_name: cleanStr(targetRow?.est_name || delSample?.est_name),
+    rrc_no: cleanStr(targetRow?.rrc_no || delSample?.rrc_no),
+    period: cleanStr(targetRow?.period || delSample?.period),
+    amount: totDelAmt,
+    details: `Deleted payment receipt #${delSample?.receipt_no || '-'} of ₹${fmtCur(totDelAmt)} deposited on ${delSample?.date ? String(delSample.date).slice(0, 10) : '-'}`
+  });
+
   // 4. Recalculate certificate totals
   let estCode = targetEstCode;
-  const row = targetRow || appData.master.find(r => r.id === rowId);
+  const row = targetRow || appData.master.find(r => String(r.id) === String(rowId));
   if (row) {
     if (!estCode) estCode = cleanStr(row.est_code);
     const accounts = ['1', '2', '10', '21', '22'];
@@ -3745,19 +3797,22 @@ async function deleteReceiptGroup(gKey, rowId) {
       acc_22_paid: row.acc_22_paid, acc_22_pending: row.acc_22_pending,
       recovery_ob: totalOb, recovered_curr_year: totalPaid, pending_curr_year: totalPending,
       fully_recovered: row.fully_recovered
-    }).eq('id', rowId);
+    }).eq('id', row.id);
   }
 
   showSaveStatus('✓ Receipt deleted & totals updated', 'var(--success)');
   updateGlobalMetrics();
   refreshEstablishmentCardView(rowId, estCode);
+  if (typeof renderEoMonthDetailsTable === 'function' && document.getElementById('eoMonthDetailsModal')?.classList.contains('active')) {
+    renderEoMonthDetailsTable();
+  }
 }
 
 // ------------------------------------------------------------------
 // Inline Payment Receipt Edit via Top Form (No Popup Modal)
 // ------------------------------------------------------------------
 function editReceiptGroupInline(gKey, rowId) {
-  const row = appData.master.find(r => r.id === rowId);
+  const row = appData.master.find(r => String(r.id) === String(rowId));
   if (!row) return;
 
   const quickModal = document.getElementById('quickEstLedgerModal');
@@ -3798,17 +3853,17 @@ function editReceiptGroupInline(gKey, rowId) {
   });
 
   // Populate inputs in scope
-  const dateInput = scope.querySelector(`#rcpt-date-${rowId}`);
-  const rcptInput = scope.querySelector(`#rcpt-no-${rowId}`);
-  const btnContainer = scope.querySelector(`#rcpt-btn-container-${rowId}`);
-  const formGrid = scope.querySelector(`#rcpt-form-grid-${rowId}`);
+  const dateInput = scope.querySelector(`#rcpt-date-${row.id}`);
+  const rcptInput = scope.querySelector(`#rcpt-no-${row.id}`);
+  const btnContainer = scope.querySelector(`#rcpt-btn-container-${row.id}`);
+  const formGrid = scope.querySelector(`#rcpt-form-grid-${row.id}`);
 
   if (dateInput) dateInput.value = dt;
   if (rcptInput) rcptInput.value = rcptNo;
 
   const accounts = ['1', '2', '10', '21', '22'];
   accounts.forEach(ac => {
-    const amtInput = scope.querySelector(`#rcpt-amt-${rowId}-${ac}`);
+    const amtInput = scope.querySelector(`#rcpt-amt-${row.id}-${ac}`);
     if (amtInput) {
       const val = accSums[ac];
       amtInput.value = val > 0 ? val : '';
@@ -3823,14 +3878,15 @@ function editReceiptGroupInline(gKey, rowId) {
     formGrid.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
-  const safeGKey = String(gKey).replace(/'/g, "\\'");
+  const encGKey = encodeJsAttr(gKey);
+  const encRowId = encodeJsAttr(row.id);
   if (btnContainer) {
     btnContainer.innerHTML = `
       <div style="display: flex; gap: 6px;">
-        <button class="sidebar-btn btn-success" style="flex: 1; margin: 0; padding: 10px; font-weight: 700;" onclick="saveReceiptEntry(${rowId}, '${safeGKey}')" title="Save updated payment record">
+        <button class="sidebar-btn btn-success" style="flex: 1; margin: 0; padding: 10px; font-weight: 700;" onclick="saveReceiptEntry(decodeURIComponent('${encRowId}'), decodeURIComponent('${encGKey}'))" title="Save updated payment record">
           <i class="fas fa-check me-1"></i> Update
         </button>
-        <button class="sidebar-btn btn-outline" style="width: 38px; margin: 0; padding: 10px; display: inline-flex; align-items: center; justify-content: center;" title="Cancel Edit" onclick="cancelReceiptEdit(${rowId})">
+        <button class="sidebar-btn btn-outline" style="width: 38px; margin: 0; padding: 10px; display: inline-flex; align-items: center; justify-content: center;" title="Cancel Edit" onclick="cancelReceiptEdit(decodeURIComponent('${encRowId}'))">
           <i class="fas fa-times"></i>
         </button>
       </div>
@@ -3842,17 +3898,20 @@ function cancelReceiptEdit(rowId) {
   const quickModal = document.getElementById('quickEstLedgerModal');
   const scope = (quickModal && quickModal.classList.contains('active')) ? quickModal : document;
 
-  const dateInput = scope.querySelector(`#rcpt-date-${rowId}`);
-  const rcptInput = scope.querySelector(`#rcpt-no-${rowId}`);
-  const btnContainer = scope.querySelector(`#rcpt-btn-container-${rowId}`);
-  const formGrid = scope.querySelector(`#rcpt-form-grid-${rowId}`);
+  const row = appData.master.find(r => String(r.id) === String(rowId));
+  const targetId = row ? row.id : rowId;
+
+  const dateInput = scope.querySelector(`#rcpt-date-${targetId}`);
+  const rcptInput = scope.querySelector(`#rcpt-no-${targetId}`);
+  const btnContainer = scope.querySelector(`#rcpt-btn-container-${targetId}`);
+  const formGrid = scope.querySelector(`#rcpt-form-grid-${targetId}`);
 
   if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
   if (rcptInput) rcptInput.value = '';
 
   const accounts = ['1', '2', '10', '21', '22'];
   accounts.forEach(ac => {
-    const amtInput = scope.querySelector(`#rcpt-amt-${rowId}-${ac}`);
+    const amtInput = scope.querySelector(`#rcpt-amt-${targetId}-${ac}`);
     if (amtInput) amtInput.value = '';
   });
 
@@ -3863,9 +3922,10 @@ function cancelReceiptEdit(rowId) {
     formGrid.style.background = '';
   }
 
+  const encRowId = encodeJsAttr(targetId);
   if (btnContainer) {
     btnContainer.innerHTML = `
-      <button class="sidebar-btn btn-accent" style="width: 100%; margin: 0; padding: 10px;" onclick="saveReceiptEntry(${rowId})">
+      <button class="sidebar-btn btn-accent" style="width: 100%; margin: 0; padding: 10px;" onclick="saveReceiptEntry(decodeURIComponent('${encRowId}'))">
         <i class="fas fa-plus"></i> Record
       </button>
     `;
@@ -3876,7 +3936,7 @@ function cancelReceiptEdit(rowId) {
 // Account Payment History Modal
 // ------------------------------------------------------------------
 function showAccountHistory(rowId, ac) {
-  const row = appData.master.find(r => r.id === rowId);
+  const row = appData.master.find(r => String(r.id) === String(rowId));
   if (!row) return;
 
   appData.activeAccHist = { rowId, ac };
@@ -3904,6 +3964,7 @@ function showAccountHistory(rowId, ac) {
 
 function refreshAccountHistoryTable(rrcNo, ac) {
   const tbody = document.getElementById('histTableBody');
+  if (!tbody) return;
   tbody.innerHTML = '';
 
   const logs = appData.recoveryLog.filter(l => cleanStr(l.rrc_no) === rrcNo && cleanStr(l.account) === String(ac));
@@ -3915,17 +3976,33 @@ function refreshAccountHistoryTable(rrcNo, ac) {
   });
 
   if (logs.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted" style="padding: 20px;">No date-wise payment entries logged yet for this account.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted" style="padding: 20px;">No date-wise payment entries logged yet for this account.</td></tr>`;
     return;
   }
 
   logs.forEach(rec => {
     const tr = document.createElement('tr');
+    const gKey = rec.txn_id || `${rec.date ? String(rec.date).slice(0, 10) : ''}___${cleanStr(rec.receipt_no)}`;
+    const masterRow = appData.master.find(m => cleanStr(m.rrc_no) === rrcNo && cleanStr(m.type) === cleanStr(rec.type)) || appData.master.find(m => cleanStr(m.rrc_no) === rrcNo);
+    const masterId = masterRow ? masterRow.id : 0;
+    const encGKey = encodeJsAttr(gKey);
+    const encMasterId = encodeJsAttr(masterId);
+
     tr.innerHTML = `
       <td>${rec.date ? String(rec.date).slice(0, 10) : 'N/A'}</td>
       <td>Account ${ac}</td>
       <td class="text-end val-cleared">${fmtCur(rec.amount_deposited)}</td>
       <td>${cleanStr(rec.period) || 'N/A'}</td>
+      <td class="text-center">
+        <div style="display: inline-flex; gap: 4px; align-items: center; justify-content: center;">
+          <button class="sidebar-btn btn-outline" style="width: 24px; height: 24px; padding: 0; margin: 0; display: inline-flex; align-items: center; justify-content: center;" title="Edit Receipt" onclick="closeModal('accountHistoryModal'); quickOpenEstablishment('${cleanStr(rec.est_code)}', ${masterId}, '${cleanStr(rec.type)}'); setTimeout(() => editReceiptGroupInline(decodeURIComponent('${encGKey}'), decodeURIComponent('${encMasterId}')), 300);">
+            <i class="fas fa-edit" style="color: var(--accent);"></i>
+          </button>
+          <button class="sidebar-btn btn-outline" style="width: 24px; height: 24px; padding: 0; margin: 0; display: inline-flex; align-items: center; justify-content: center;" title="Delete Receipt" onclick="deleteReceiptGroup(decodeURIComponent('${encGKey}'), decodeURIComponent('${encMasterId}')); setTimeout(() => refreshAccountHistoryTable('${rrcNo}', '${ac}'), 400);">
+            <i class="fas fa-trash-alt" style="color: var(--danger);"></i>
+          </button>
+        </div>
+      </td>
     `;
     tbody.appendChild(tr);
   });
