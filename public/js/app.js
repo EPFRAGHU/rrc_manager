@@ -38,9 +38,19 @@ function encodeJsAttr(val) {
   return encodeURIComponent(String(val));
 }
 
-const APP_VERSION = 'v3.3.0';
+const APP_VERSION = 'v3.3.1';
 
 const APP_RELEASE_LOG = [
+  {
+    version: 'v3.3.1',
+    date: '2026-08-02',
+    title: 'Date-Wise Payment Receipt Ledger Record Button Fix & Form Reset Engine',
+    changes: [
+      'Resolved ReferenceError crash on targetEstCode, totalPaid, receiptNo, and txnDate in saveReceiptEntry when recording new payment receipts.',
+      'Scoped targetEstCode, targetType, and addedTotalAmt to outer function scope in saveReceiptEntry for 100% failsafe audit logging.',
+      'Added automatic form input clearing and button state reset via cancelReceiptEdit upon successful payment recording.'
+    ]
+  },
   {
     version: 'v3.3.0',
     date: '2026-08-02',
@@ -3496,14 +3506,14 @@ function refreshEstablishmentCardView(rowId, estCode) {
 // Record Payment Receipt
 // ------------------------------------------------------------------
 async function saveReceiptEntry(rowId, editingGKey = null) {
-  const row = appData.master.find(r => r.id === rowId);
+  const row = appData.master.find(r => String(r.id) === String(rowId));
   if (!row) return;
 
   const quickModal = document.getElementById('quickEstLedgerModal');
   const scope = (quickModal && quickModal.classList.contains('active')) ? quickModal : document;
 
-  const dateInput = scope.querySelector(`#rcpt-date-${rowId}`) || document.getElementById(`rcpt-date-${rowId}`);
-  const rcptInput = scope.querySelector(`#rcpt-no-${rowId}`) || document.getElementById(`rcpt-no-${rowId}`);
+  const dateInput = scope.querySelector(`#rcpt-date-${row.id}`) || document.getElementById(`rcpt-date-${row.id}`);
+  const rcptInput = scope.querySelector(`#rcpt-no-${row.id}`) || document.getElementById(`rcpt-no-${row.id}`);
 
   if (!dateInput) {
     alert('Payment entry form not found.');
@@ -3521,13 +3531,15 @@ async function saveReceiptEntry(rowId, editingGKey = null) {
   const accounts = ['1', '2', '10', '21', '22'];
   let newEntries = [];
   let txnId = 'TXN_' + Date.now();
+  let addedTotalAmt = 0;
 
   accounts.forEach(ac => {
-    const input = scope.querySelector(`#rcpt-amt-${rowId}-${ac}`) || document.getElementById(`rcpt-amt-${rowId}-${ac}`);
+    const input = scope.querySelector(`#rcpt-amt-${row.id}-${ac}`) || document.getElementById(`rcpt-amt-${row.id}-${ac}`);
     if (input) {
       const rawVal = String(input.value || '').replace(/,/g, '').trim();
       const amt = parseFloat(rawVal) || 0;
       if (amt > 0) {
+        addedTotalAmt += amt;
         newEntries.push({
           txn_id: txnId,
           date: dateVal,
@@ -3549,12 +3561,12 @@ async function saveReceiptEntry(rowId, editingGKey = null) {
     return;
   }
 
+  const targetEstCode = cleanStr(row.est_code);
+  const targetType = cleanStr(row.type);
+
   // If we are editing an existing receipt group, remove old entries first
   if (editingGKey) {
     showSaveStatus('⏳ Updating payment receipt in Supabase...', 'var(--warning)');
-
-    const targetEstCode = cleanStr(row.est_code);
-    const targetType = cleanStr(row.type);
 
     let toDelete = appData.recoveryLog.filter(l => {
       if (l.txn_id && l.txn_id === editingGKey) return true;
@@ -3600,13 +3612,13 @@ async function saveReceiptEntry(rowId, editingGKey = null) {
     est_name: cleanStr(row.est_name),
     rrc_no: cleanStr(row.rrc_no),
     period: cleanStr(row.period),
-    amount: totalPaid,
-    details: `${editingGKey ? 'Updated' : 'Added'} payment receipt #${receiptNo || '-'} of ₹${fmtCur(totalPaid)} deposited on ${formatDisplayDate(txnDate)}`
+    amount: addedTotalAmt,
+    details: `${editingGKey ? 'Updated' : 'Added'} payment receipt #${rcptNo || '-'} of ₹${fmtCur(addedTotalAmt)} deposited on ${formatDisplayDate(dateVal)}`
   });
 
   // Recalculate Account Paid Totals for this certificate
-  const estCode = cleanStr(row.est_code);
-  const type = cleanStr(row.type);
+  const estCode = targetEstCode;
+  const type = targetType;
 
   for (const ac of accounts) {
     const certLogs = appData.recoveryLog.filter(l => cleanStr(l.est_code) === estCode && cleanStr(l.type) === type && cleanStr(l.account) === ac);
@@ -3640,11 +3652,16 @@ async function saveReceiptEntry(rowId, editingGKey = null) {
     acc_22_paid: row.acc_22_paid, acc_22_pending: row.acc_22_pending,
     recovery_ob: totalOb, recovered_curr_year: totalPaid, pending_curr_year: totalPending,
     fully_recovered: row.fully_recovered
-  }).eq('id', rowId);
+  }).eq('id', row.id);
+
+  cancelReceiptEdit(row.id);
 
   showSaveStatus(editingGKey ? '✓ Receipt updated & synced successfully!' : '✓ Receipt recorded & synced successfully!', 'var(--success)');
   updateGlobalMetrics();
-  refreshEstablishmentCardView(rowId, estCode);
+  refreshEstablishmentCardView(row.id, estCode);
+  if (typeof renderEoMonthDetailsTable === 'function' && document.getElementById('eoMonthDetailsModal')?.classList.contains('active')) {
+    renderEoMonthDetailsTable();
+  }
 }
 
 async function deleteReceiptGroup(gKey, rowId) {
